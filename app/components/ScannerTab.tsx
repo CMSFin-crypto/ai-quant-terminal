@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Activity, ChevronDown, ChevronUp } from "lucide-react";
 import type { TerminalOption } from "@/lib/workstation";
 import type { AnalystVerdict } from "@/lib/aiHistoricalAnalyst";
@@ -25,6 +26,14 @@ export function ScannerTab({
   selectedAnalysis
 }: ScannerTabProps) {
   const selectedOption = filteredRankedData.find((item) => item.symbol === selected);
+  const selectedRowRef = useRef<HTMLTableRowElement>(null);
+
+  // Auto-scroll to the selected row whenever selection changes
+  useEffect(() => {
+    if (selectedRowRef.current) {
+      selectedRowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [selected]);
 
   return (
     <Panel
@@ -59,6 +68,7 @@ export function ScannerTab({
                   analysis={analysis}
                   selectedOption={isSelected ? selectedOption : undefined}
                   selectedAnalysis={isSelected ? selectedAnalysis : undefined}
+                  rowRef={isSelected ? selectedRowRef : undefined}
                 />
               );
             })}
@@ -77,7 +87,8 @@ function ScannerRow({
   onSelect,
   analysis,
   selectedOption,
-  selectedAnalysis
+  selectedAnalysis,
+  rowRef
 }: {
   item: TerminalOption;
   isSelected: boolean;
@@ -85,10 +96,12 @@ function ScannerRow({
   analysis: AnalystVerdict;
   selectedOption?: TerminalOption;
   selectedAnalysis?: AnalystVerdict | null;
+  rowRef?: React.RefObject<HTMLTableRowElement | null>;
 }) {
   return (
     <>
       <tr
+        ref={rowRef}
         onClick={() => onSelect(item.symbol)}
         className={`cursor-pointer border-b border-terminal-edge/70 hover:bg-terminal-green/5 ${
           isSelected ? "bg-terminal-cyan/5" : ""

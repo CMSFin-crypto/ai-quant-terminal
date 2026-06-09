@@ -255,8 +255,13 @@ export default function Page() {
     async (symbol: string, name: string) => {
       const upperSymbol = symbol.toUpperCase();
 
-      // Don't add duplicates
-      if (existingSymbols.includes(upperSymbol)) return;
+      // If stock already exists, just select it and show it in scanner
+      if (existingSymbols.includes(upperSymbol)) {
+        setSelected(upperSymbol);
+        setActiveTab("Scanner");
+        setSelectedSector("All");
+        return;
+      }
 
       // Add the new stock to the custom list
       const newStock: Stock = {
@@ -265,6 +270,11 @@ export default function Page() {
         sector: "Tech", // Default sector for custom stocks
       };
       setCustomStocks((prev) => [...prev, newStock]);
+
+      // Switch to scanner immediately so the user sees it
+      setActiveTab("Scanner");
+      setSelectedSector("All");
+      setSelected(upperSymbol);
 
       // Immediately fetch data for this stock and add it to the terminal
       try {
@@ -292,14 +302,10 @@ export default function Page() {
           : buildSyntheticOption(newStock, historical, quotePrice, finalHistorySource);
 
         setData((prev) => [...prev, terminalOption]);
-        setSelected(upperSymbol);
-        setActiveTab("Scanner");
-        setSelectedSector("All");
       } catch {
         // Even if fetch fails, add a synthetic version
         const synthetic = buildSyntheticOption(newStock);
         setData((prev) => [...prev, synthetic]);
-        setSelected(upperSymbol);
       }
     },
     [existingSymbols]
