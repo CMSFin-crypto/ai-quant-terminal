@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Radar } from "lucide-react";
 
-import { STOCKS } from "@/lib/sectors";
+import { STOCKS, type Stock } from "@/lib/sectors";
 import { calculateHistoricalMetrics, generateMockHistory } from "@/lib/historicalAnalytics";
 import { analyzeHistorically } from "@/lib/aiHistoricalAnalyst";
 import type { AnalystVerdict } from "@/lib/aiHistoricalAnalyst";
@@ -36,6 +36,7 @@ import { RiskTab } from "./components/RiskTab";
 import { SelectedContractPanel } from "./components/SelectedContractPanel";
 import { TopSignalsPanel } from "./components/TopSignalsPanel";
 import { SectorHeatmapPanel } from "./components/SectorHeatmapPanel";
+import { StockSearch } from "./components/StockSearch";
 
 export default function Page() {
   const [data, setData] = useState<TerminalOption[]>([]);
@@ -46,6 +47,11 @@ export default function Page() {
   const [lastRefresh, setLastRefresh] = useState("--:--:--");
   const [refreshDisabled, setRefreshDisabled] = useState(false);
   const [refreshCountdown, setRefreshCountdown] = useState(0);
+  const [customStocks, setCustomStocks] = useState<Stock[]>([]);
+
+  // All stocks = predefined + custom searched
+  const allStocks = useMemo(() => [...STOCKS, ...customStocks], [customStocks]);
+  const existingSymbols = useMemo(() => allStocks.map((s) => s.symbol), [allStocks]);
 
   const selectedOption = useMemo(
     () => data.find((item) => item.symbol === selected) || data[0],
@@ -140,7 +146,8 @@ export default function Page() {
   // Fetch in batches of 5 to avoid rate limits from Yahoo Finance and our own API
   const fetchAll = useCallback(async () => {
     setStatus("Syncing");
-    const fallback = buildMockTerminalData(STOCKS);
+    const stocksToFetch = allStocks;
+    const fallback = buildMockTerminalData(stocksToFetch);
     const BATCH_SIZE = 5;
     const DELAY_BETWEEN_BATCHES_MS = 200;
 
@@ -148,7 +155,7 @@ export default function Page() {
       return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
-    async function fetchOneStock(stock: (typeof STOCKS)[number]) {
+    async function fetchOneStock(stock: Stock) {
       try {
         const [optionsRes, historyRes, quoteRes] = await Promise.all([
           fetch(`/api/options?symbol=${stock.symbol}`),
@@ -182,8 +189,8 @@ export default function Page() {
       const responses: TerminalOption[] = [];
 
       // Process stocks in batches to avoid rate limiting
-      for (let i = 0; i < STOCKS.length; i += BATCH_SIZE) {
-        const batch = STOCKS.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < stocksToFetch.length; i += BATCH_SIZE) {
+        const batch = stocksToFetch.slice(i, i + BATCH_SIZE);
         const batchResults = await Promise.all(batch.map(fetchOneStock));
         responses.push(...batchResults);
 
@@ -191,7 +198,7 @@ export default function Page() {
         setData([...responses]);
 
         // Small delay between batches to avoid rate limits
-        if (i + BATCH_SIZE < STOCKS.length) {
+        if (i + BATCH_SIZE < stocksToFetch.length) {
           await delay(DELAY_BETWEEN_BATCHES_MS);
         }
       }
@@ -203,7 +210,7 @@ export default function Page() {
       setStatus("SIM MODE");
       setLastRefresh(new Date().toLocaleTimeString());
     }
-  }, []);
+  }, [allStocks]);
 
   useEffect(() => {
     fetchAll();
@@ -243,6 +250,61 @@ export default function Page() {
     []
   );
 
+  // --- Add custom stock from search ---
+  const handleAddStock = useCallback(
+    async (symbol: string, name: string) => {
+      const upperSymbol = symbol.toUpperCase();
+
+      // Don't add duplicates
+      if (existingSymbols.includes(upperSymbol)) return;
+
+      // Add the new stock to the custom list
+      const newStock: Stock = {
+        symbol: upperSymbol,
+        name: name || upperSymbol,
+        sector: "Tech", // Default sector for custom stocks
+      };
+      setCustomStocks((prev) => [...prev, newStock]);
+
+      // Immediately fetch data for this stock and add it to the terminal
+      try {
+        const [optionsRes, historyRes, quoteRes] = await Promise.all([
+          fetch(`/api/options?symbol=${upperSymbol}`),
+          fetch(`/api/history?symbol=${upperSymbol}&days=365`),
+          fetch(`/api/quote?symbol=${upperSymbol}`)
+        ]);
+        const [optionsJson, historyJson, quoteJson] = await Promise.all([
+          optionsRes.json(),
+          historyRes.json(),
+          quoteRes.json()
+        ]);
+        const historySource = historyJson?.source || "unknown";
+        const hasRealHistory = Array.isArray(historyJson?.results) && historyJson.results.length >= 90;
+        const bars = hasRealHistory ? historyJson.results : generateMockHistory(upperSymbol);
+        const historical = calculateHistoricalMetrics(bars);
+        const quotePrice = Number(quoteJson?.price || optionsJson?.underlyingPrice || 0) || undefined;
+        const optionsSource = optionsJson?.source || undefined;
+        const contract = pickOptionContract(optionsJson?.results, historical, quotePrice);
+        const finalHistorySource = hasRealHistory ? historySource : "simulated";
+
+        const terminalOption = contract
+          ? normalizePolygonOption(newStock, contract, historical, quotePrice, finalHistorySource, optionsSource)
+          : buildSyntheticOption(newStock, historical, quotePrice, finalHistorySource);
+
+        setData((prev) => [...prev, terminalOption]);
+        setSelected(upperSymbol);
+        setActiveTab("Scanner");
+        setSelectedSector("All");
+      } catch {
+        // Even if fetch fails, add a synthetic version
+        const synthetic = buildSyntheticOption(newStock);
+        setData((prev) => [...prev, synthetic]);
+        setSelected(upperSymbol);
+      }
+    },
+    [existingSymbols]
+  );
+
   const isLoading = status === "Booting" || status === "Syncing";
 
   return (
@@ -273,6 +335,10 @@ export default function Page() {
 
             <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[260px_1fr_360px]">
               <aside className="flex flex-col gap-4">
+                <StockSearch
+                  onAddStock={handleAddStock}
+                  existingSymbols={existingSymbols}
+                />
                 <CommandPanel
                   activeTab={activeTab}
                   onTabChange={setActiveTab}
