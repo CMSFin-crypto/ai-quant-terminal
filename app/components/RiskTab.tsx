@@ -23,12 +23,12 @@ interface RiskTabProps {
 export function RiskTab({ grossPremium, portfolioRisk, riskCurve }: RiskTabProps) {
   return (
     <Panel title="Portfolio Risk Engine" icon={<ShieldCheck size={17} />}>
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-2 sm:gap-3 grid-cols-2 sm:grid-cols-3">
         <Metric label="Gross Premium" value={money.format(grossPremium)} />
         <Metric label="Delta Exposure" value={money.format(portfolioRisk)} accent="amber" />
         <Metric label="Tail Floor" value={money.format(Math.min(...riskCurve.map((item) => item.pnl)))} accent="red" />
       </div>
-      <div className="mt-4 h-[390px]">
+      <div className="mt-3 sm:mt-4 h-[280px] sm:h-[340px] lg:h-[390px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={riskCurve}>
             <CartesianGrid stroke="#1a342e" vertical={false} />

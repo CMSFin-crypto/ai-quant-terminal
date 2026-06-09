@@ -319,20 +319,20 @@ export default function Page() {
         <SkeletonLoader />
       ) : (
         <main className="terminal-grid min-h-screen bg-terminal-bg text-terminal-text">
-          <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4 px-4 py-4 lg:px-6">
-            <header className="flex flex-col gap-4 border-b border-terminal-edge pb-4">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-3 px-3 py-3 sm:px-4 sm:py-4 lg:px-6">
+            <header className="flex flex-col gap-3 border-b border-terminal-edge pb-3 sm:pb-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <div className="flex items-center gap-3 text-sm uppercase tracking-[0.24em] text-terminal-green">
-                    <Radar size={18} />
+                  <div className="flex items-center gap-2 text-xs sm:text-sm uppercase tracking-[0.20em] sm:tracking-[0.24em] text-terminal-green">
+                    <Radar size={16} />
                     Ultra Hedge Fund Workstation V2
                   </div>
-                  <h1 className="mt-2 text-3xl font-semibold tracking-normal text-white md:text-5xl">
+                  <h1 className="mt-1.5 text-2xl sm:text-3xl font-semibold tracking-normal text-white md:text-4xl lg:text-5xl">
                     Real Quant AI Terminal
                   </h1>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-2 sm:grid-cols-4">
                   <Metric label="Status" value={status} accent={status === "LIVE" ? "green" : "amber"} />
                   <Metric label="Refresh" value={lastRefresh} />
                   <Metric label="Premium" value={money.format(grossPremium)} />
@@ -351,16 +351,16 @@ export default function Page() {
               />
             </header>
 
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[1fr_360px]">
+            <section className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_360px]">
               <section className="min-w-0">
                 {/* Horizontal tab bar + Refresh */}
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div className="flex flex-wrap gap-1">
+                <div className="mb-3 sm:mb-4 flex items-center justify-between gap-2">
+                  <div className="thin-scrollbar flex gap-1 overflow-x-auto">
                     {tabs.map((tab) => (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`rounded px-3 py-1.5 text-xs font-semibold transition ${
+                        className={`shrink-0 rounded px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition ${
                           activeTab === tab
                             ? "bg-terminal-cyan/15 text-terminal-cyan border border-terminal-cyan/40"
                             : "text-terminal-muted hover:text-white border border-transparent hover:border-terminal-edge"
@@ -373,10 +373,10 @@ export default function Page() {
                   <button
                     onClick={handleRefresh}
                     disabled={refreshDisabled}
-                    className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded border border-terminal-green/40 bg-terminal-green/10 px-3 text-xs font-semibold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded border border-terminal-green/40 bg-terminal-green/10 px-2.5 sm:px-3 text-xs font-semibold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <RefreshCw size={13} className={refreshDisabled ? "animate-spin" : ""} />
-                    {refreshDisabled ? `${refreshCountdown}s` : "Refresh"}
+                    <span className="hidden sm:inline">{refreshDisabled ? `${refreshCountdown}s` : "Refresh"}</span>
                   </button>
                 </div>
 
@@ -431,12 +431,11 @@ export default function Page() {
                 )}
               </section>
 
-              <aside className="flex min-w-0 flex-col gap-4">
+              <aside className="flex min-w-0 flex-col gap-3 sm:gap-4">
                 <StockSearch
                   onAddStock={handleAddStock}
                   existingSymbols={existingSymbols}
                 />
-                <TopSignalsPanel topSignals={topSignals} onSelect={setSelected} />
 
                 {selectedOption && (
                   <SelectedContractPanel
@@ -444,6 +443,8 @@ export default function Page() {
                     selectedAnalysis={selectedAnalysis}
                   />
                 )}
+
+                <TopSignalsPanel topSignals={topSignals} onSelect={setSelected} />
 
                 <SectorHeatmapPanel sectors={sectors} />
               </aside>

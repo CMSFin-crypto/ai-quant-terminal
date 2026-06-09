@@ -15,14 +15,14 @@ interface StrategyTabProps {
 export function StrategyTab({ selectedOption, selectedAnalysis }: StrategyTabProps) {
   return (
     <Panel title="Auto Strategy Builder" icon={<BrainCircuit size={17} />}>
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StrategyCard title="Primary" name={selectedAnalysis?.action || selectedOption.signal.signal} item={selectedOption} />
         <StrategyCard title="Structure" name={selectedAnalysis?.structure || "Defined-Risk Options Setup"} item={selectedOption} />
         <StrategyCard title="Income" name="Defined-Risk Premium Sale" item={selectedOption} />
       </div>
-      <div className="mt-4 rounded border border-terminal-edge bg-black/20 p-4">
+      <div className="mt-3 sm:mt-4 rounded border border-terminal-edge bg-black/20 p-3 sm:p-4">
         <div className="text-xs uppercase tracking-[0.18em] text-terminal-muted">GPT Trade Reasoning</div>
-        <p className="mt-2 text-sm leading-6 text-terminal-text">
+        <p className="mt-2 text-xs sm:text-sm leading-5 sm:leading-6 text-terminal-text">
           {selectedOption.symbol} shows an AI action of {selectedAnalysis?.action || selectedOption.signal.signal} with
           {" "}{(selectedOption.iv * 100).toFixed(1)}% implied volatility, {selectedOption.delta.toFixed(2)} delta, and
           {" "}{selectedOption.edge.toFixed(1)}% model edge versus Black-Scholes fair value. Preferred structure:

@@ -19,11 +19,11 @@ interface SectorHeatmapPanelProps {
 export function SectorHeatmapPanel({ sectors }: SectorHeatmapPanelProps) {
   return (
     <Panel title="Sector Heatmap" icon={<Activity size={17} />}>
-      <div className="h-[220px]">
+      <div className="h-[180px] sm:h-[220px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={sectors}>
             <CartesianGrid stroke="#1a342e" vertical={false} />
-            <XAxis dataKey="sector" stroke="#8eb2a8" tick={{ fontSize: 11 }} />
+            <XAxis dataKey="sector" stroke="#8eb2a8" tick={{ fontSize: 10 }} />
             <YAxis stroke="#8eb2a8" domain={[0, 100]} />
             <Tooltip contentStyle={{ background: "#07110f", border: "1px solid #1a342e" }} />
             <Line type="monotone" dataKey="score" stroke="#36f29b" strokeWidth={2} dot />

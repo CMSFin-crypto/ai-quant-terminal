@@ -20,11 +20,11 @@ export function SectorTabs({
   onSelectSector
 }: SectorTabsProps) {
   return (
-    <div className="thin-scrollbar flex gap-2 overflow-x-auto pb-1">
+    <div className="thin-scrollbar flex gap-1.5 sm:gap-2 overflow-x-auto pb-1">
       {/* All sectors tab */}
       <button
         onClick={() => onSelectSector("All", rankedData[0]?.symbol || selected)}
-        className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
+        className={`shrink-0 rounded-full border px-3 py-1 sm:px-4 sm:py-1.5 text-xs font-semibold transition ${
           selectedSector === "All"
             ? "border-terminal-cyan bg-terminal-cyan/10 text-terminal-cyan"
             : "border-terminal-edge bg-black/20 text-terminal-muted hover:border-terminal-green/50 hover:text-white"
@@ -41,7 +41,7 @@ export function SectorTabs({
             const firstInSector = rankedData.find((item) => item.sector === sector.sector);
             onSelectSector(sector.sector as TerminalOption["sector"], firstInSector?.symbol || selected);
           }}
-          className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
+          className={`shrink-0 rounded-full border px-3 py-1 sm:px-4 sm:py-1.5 text-xs font-semibold transition ${
             selectedSector === sector.sector
               ? "border-terminal-cyan bg-terminal-cyan/10 text-terminal-cyan"
               : "border-terminal-edge bg-black/20 text-terminal-muted hover:border-terminal-green/50 hover:text-white"
