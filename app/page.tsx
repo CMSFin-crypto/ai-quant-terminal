@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Radar } from "lucide-react";
+import { Radar, RefreshCw } from "lucide-react";
 
 import { STOCKS, type Stock } from "@/lib/sectors";
 import { calculateHistoricalMetrics, generateMockHistory } from "@/lib/historicalAnalytics";
@@ -24,7 +24,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { SkeletonLoader } from "./components/SkeletonLoader";
 import { Panel } from "./components/Panel";
 import { Metric } from "./components/Metric";
-import { CommandPanel, tabs, type Tab } from "./components/CommandPanel";
+import { tabs, type Tab } from "./components/CommandPanel";
 import { SectorTabs } from "./components/SectorTabs";
 import { ScannerTab } from "./components/ScannerTab";
 import { AIAnalystTab } from "./components/AIAnalystTab";
@@ -351,22 +351,35 @@ export default function Page() {
               />
             </header>
 
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[260px_1fr_360px]">
-              <aside className="flex flex-col gap-4">
-                <StockSearch
-                  onAddStock={handleAddStock}
-                  existingSymbols={existingSymbols}
-                />
-                <CommandPanel
-                  activeTab={activeTab}
-                  onTabChange={setActiveTab}
-                  onRefresh={handleRefresh}
-                  refreshDisabled={refreshDisabled}
-                  refreshCountdown={refreshCountdown}
-                />
-              </aside>
-
+            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[1fr_360px]">
               <section className="min-w-0">
+                {/* Horizontal tab bar + Refresh */}
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-1">
+                    {tabs.map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`rounded px-3 py-1.5 text-xs font-semibold transition ${
+                          activeTab === tab
+                            ? "bg-terminal-cyan/15 text-terminal-cyan border border-terminal-cyan/40"
+                            : "text-terminal-muted hover:text-white border border-transparent hover:border-terminal-edge"
+                        }`}
+                      >
+                        {tab}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={handleRefresh}
+                    disabled={refreshDisabled}
+                    className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded border border-terminal-green/40 bg-terminal-green/10 px-3 text-xs font-semibold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw size={13} className={refreshDisabled ? "animate-spin" : ""} />
+                    {refreshDisabled ? `${refreshCountdown}s` : "Refresh"}
+                  </button>
+                </div>
+
                 {activeTab === "Scanner" && (
                   <ScannerTab
                     filteredRankedData={filteredRankedData}
@@ -419,6 +432,10 @@ export default function Page() {
               </section>
 
               <aside className="flex min-w-0 flex-col gap-4">
+                <StockSearch
+                  onAddStock={handleAddStock}
+                  existingSymbols={existingSymbols}
+                />
                 <TopSignalsPanel topSignals={topSignals} onSelect={setSelected} />
 
                 {selectedOption && (
