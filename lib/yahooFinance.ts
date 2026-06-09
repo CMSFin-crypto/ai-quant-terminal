@@ -1,7 +1,7 @@
 /**
  * Yahoo Finance free data source — no API key required.
- * Uses the v8 chart endpoint which returns both historical candles and current quote.
- * Uses the v7 options endpoint for real options chain data with IV and Greeks.
+ * Uses the v8 chart endpoint for quotes and historical candles.
+ * Uses the v7 options endpoint with crumb authentication for real options chains.
  *
  * All fetch calls include an AbortController timeout to prevent hanging.
  */
@@ -10,6 +10,9 @@ import type { PolygonOptionContract } from "./workstation";
 
 const YAHUA_FETCH_TIMEOUT_MS = 8_000;
 const OPTIONS_FETCH_TIMEOUT_MS = 10_000;
+
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 export type YahooBar = {
   t: number;
@@ -160,7 +163,7 @@ export async function fetchYahooHistory(symbol: string, days = 365): Promise<Yah
   }
 }
 
-// ─── Yahoo Finance Options Chain ─────────────────────────────────────────────
+// ─── Yahoo Finance Options Chain with Crumb Auth ─────────────────────────────
 
 type YahooOptionContract = {
   contractSymbol?: string;
@@ -210,7 +213,6 @@ function normalizeYahooContract(
   contract: YahooOptionContract,
   optionType: "call" | "put"
 ): PolygonOptionContract {
-  // Derive expiration date from the contract symbol or timestamp
   const expDate = contract.expiration
     ? new Date(contract.expiration * 1000).toISOString().slice(0, 10)
     : undefined;
@@ -272,32 +274,96 @@ function pickClosestExpiry(
   return best;
 }
 
+// ─── Crumb Management ────────────────────────────────────────────────────────
+// Yahoo Finance v7/v10 API now requires a "crumb" for authentication.
+// We fetch it once and cache it for CRUMB_TTL_MS.
+
+let cachedCrumb: string | null = null;
+let crumbExpiresAt = 0;
+const CRUMB_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+async function getYahooCrumb(): Promise<string | null> {
+  // Return cached crumb if still valid
+  if (cachedCrumb && Date.now() < crumbExpiresAt) return cachedCrumb;
+
+  try {
+    // Step 1: Visit fc.yahoo.com to get session cookies
+    // The Node.js fetch runtime shares cookies within the same process
+    await fetch("https://fc.yahoo.com/", {
+      headers: { "User-Agent": UA },
+      next: { revalidate: 0 },
+    });
+
+    // Step 2: Get the crumb using the session cookies
+    const crumbRes = await fetch(
+      "https://query1.finance.yahoo.com/v1/test/getcrumb",
+      {
+        headers: { "User-Agent": UA },
+        next: { revalidate: 0 },
+      }
+    );
+
+    if (!crumbRes.ok) return null;
+
+    const crumb = await crumbRes.text();
+
+    if (!crumb || crumb.includes("error") || crumb.includes("Unauthorized")) {
+      return null;
+    }
+
+    cachedCrumb = crumb;
+    crumbExpiresAt = Date.now() + CRUMB_TTL_MS;
+
+    return crumb;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Fetch real options chain from Yahoo Finance v7 endpoint.
- * Tries the ~30 DTE expiration first; if none is available falls back to
- * the nearest available expiry.
+ * Uses crumb-based authentication to bypass the "Invalid Crumb" error.
+ * Tries the ~30 DTE expiration first; falls back to the nearest expiry.
  *
  * Returns contracts normalized into PolygonOptionContract[] format.
  */
 export async function fetchYahooOptions(symbol: string): Promise<YahooOptionsResult> {
-  // Step 1: Fetch the default page (nearest expiry) to get the list of all expirations
-  const baseUrl = `https://query1.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}`;
+  // Step 0: Get authentication crumb
+  const crumb = await getYahooCrumb();
+  if (!crumb) return emptyOptions("yahoo-options-no-crumb");
+
+  const baseOptionsUrl = `https://query1.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}`;
 
   try {
+    // Step 1: Fetch the default expiry (nearest) with crumb
     const controller1 = new AbortController();
     const timer1 = setTimeout(() => controller1.abort(), OPTIONS_FETCH_TIMEOUT_MS);
 
-    const res1 = await fetch(baseUrl, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-      next: { revalidate: 60 },
-      signal: controller1.signal,
-    });
+    const res1 = await fetch(
+      `${baseOptionsUrl}?crumb=${encodeURIComponent(crumb)}`,
+      {
+        headers: { "User-Agent": UA },
+        next: { revalidate: 60 },
+        signal: controller1.signal,
+      }
+    );
 
     clearTimeout(timer1);
 
-    if (!res1.ok) return emptyOptions("yahoo-options-error");
+    if (!res1.ok) {
+      // Crumb might have expired — clear cache for next attempt
+      cachedCrumb = null;
+      return emptyOptions("yahoo-options-error");
+    }
 
     const data1 = await res1.json();
+
+    // Check for crumb/auth error in the response body
+    if (data1?.finance?.error) {
+      cachedCrumb = null;
+      return emptyOptions("yahoo-options-auth-failed");
+    }
+
     const chain = data1?.optionChain?.result?.[0];
 
     if (!chain) return emptyOptions("yahoo-options-no-data");
@@ -305,27 +371,26 @@ export async function fetchYahooOptions(symbol: string): Promise<YahooOptionsRes
     const allExpirations: number[] = chain.expirationDates || [];
     const underlyingPrice = chain.quote?.regularMarketPrice ?? null;
 
-    // Step 2: If we already have the ~30 DTE data in the first response, use it
-    // Otherwise, fetch the specific expiration date closest to 30 DTE
+    // Step 2: Check if default expiry is near 30 DTE, otherwise fetch the right one
     let optionsData: YahooOptionsExpiry[];
 
-    // Check if the default response already contains a near-30DTE expiry
     const defaultExpiry = chain.options?.[0]?.expirationDate;
     const targetExpiry = pickClosestExpiry(allExpirations, 30);
 
     if (defaultExpiry && targetExpiry && Math.abs(defaultExpiry - targetExpiry) < 3 * 86400) {
-      // Close enough – use the data we already have
       optionsData = chain.options || [];
     } else if (targetExpiry) {
-      // Fetch the specific ~30 DTE expiry
       const controller2 = new AbortController();
       const timer2 = setTimeout(() => controller2.abort(), OPTIONS_FETCH_TIMEOUT_MS);
 
-      const res2 = await fetch(`${baseUrl}?date=${targetExpiry}`, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-        next: { revalidate: 60 },
-        signal: controller2.signal,
-      });
+      const res2 = await fetch(
+        `${baseOptionsUrl}?date=${targetExpiry}&crumb=${encodeURIComponent(crumb)}`,
+        {
+          headers: { "User-Agent": UA },
+          next: { revalidate: 60 },
+          signal: controller2.signal,
+        }
+      );
 
       clearTimeout(timer2);
 
@@ -345,7 +410,6 @@ export async function fetchYahooOptions(symbol: string): Promise<YahooOptionsRes
 
     for (const expiry of optionsData) {
       for (const call of expiry.calls || []) {
-        // Skip contracts with no meaningful data
         if (!call.lastPrice && !call.bid && !call.ask) continue;
         if (!call.strike || call.strike <= 0) continue;
         normalized.push(normalizeYahooContract(call, "call"));
@@ -368,6 +432,8 @@ export async function fetchYahooOptions(symbol: string): Promise<YahooOptionsRes
 }
 
 // ─── Finnhub Options Chain ───────────────────────────────────────────────────
+// Note: Finnhub free plan does NOT include options data.
+// This function is kept for users with premium Finnhub keys.
 
 type FinnhubOptionContract = {
   symbol?: string;
@@ -389,7 +455,7 @@ type FinnhubOptionExpiry = {
 };
 
 /**
- * Fetch real options chain from Finnhub.
+ * Fetch real options chain from Finnhub (requires premium key).
  * Returns contracts normalized into PolygonOptionContract[] format.
  */
 export async function fetchFinnhubOptions(
@@ -412,6 +478,10 @@ export async function fetchFinnhubOptions(
     if (!res.ok) return emptyOptions("finnhub-options-error");
 
     const data = await res.json();
+
+    // Finnhub returns error object for free plans
+    if (data?.error) return emptyOptions("finnhub-options-no-access");
+
     const expirations: FinnhubOptionExpiry[] = data?.data || [];
 
     if (!expirations.length) return emptyOptions("finnhub-options-no-data");
@@ -456,7 +526,7 @@ export async function fetchFinnhubOptions(
         last_trade: { price: Number(call.last || 0) },
         day: { volume: Number(call.volume || 0) },
         open_interest: Number(call.openInterest || 0),
-        greeks: undefined, // Finnhub doesn't provide greeks; BS model will compute them
+        greeks: undefined,
       });
     }
 
