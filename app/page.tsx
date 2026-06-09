@@ -137,38 +137,64 @@ export default function Page() {
   );
 
   // --- useCallback for fetchAll (improvement #3) ---
+  // Fetch in batches of 5 to avoid rate limits from Yahoo Finance and our own API
   const fetchAll = useCallback(async () => {
     setStatus("Syncing");
     const fallback = buildMockTerminalData(STOCKS);
+    const BATCH_SIZE = 5;
+    const DELAY_BETWEEN_BATCHES_MS = 200;
+
+    function delay(ms: number) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async function fetchOneStock(stock: (typeof STOCKS)[number]) {
+      try {
+        const [optionsRes, historyRes, quoteRes] = await Promise.all([
+          fetch(`/api/options?symbol=${stock.symbol}`),
+          fetch(`/api/history?symbol=${stock.symbol}&days=365`),
+          fetch(`/api/quote?symbol=${stock.symbol}`)
+        ]);
+        const [optionsJson, historyJson, quoteJson] = await Promise.all([
+          optionsRes.json(),
+          historyRes.json(),
+          quoteRes.json()
+        ]);
+        const historySource = historyJson?.source || "unknown";
+        const hasRealHistory = Array.isArray(historyJson?.results) && historyJson.results.length >= 90;
+        const bars = hasRealHistory ? historyJson.results : generateMockHistory(stock.symbol);
+        const historical = calculateHistoricalMetrics(bars);
+        const quotePrice = Number(quoteJson?.price || 0) || undefined;
+        const contract = pickOptionContract(optionsJson?.results, historical, quotePrice);
+        const finalHistorySource = hasRealHistory ? historySource : "simulated";
+
+        return contract
+          ? normalizePolygonOption(stock, contract, historical, quotePrice, finalHistorySource)
+          : buildSyntheticOption(stock, historical, quotePrice, finalHistorySource);
+      } catch {
+        // If individual stock fetch fails, use synthetic data
+        return buildSyntheticOption(stock);
+      }
+    }
 
     try {
-      const responses = await Promise.all(
-        STOCKS.map(async (stock) => {
-          const [optionsRes, historyRes, quoteRes] = await Promise.all([
-            fetch(`/api/options?symbol=${stock.symbol}`),
-            fetch(`/api/history?symbol=${stock.symbol}&days=365`),
-            fetch(`/api/quote?symbol=${stock.symbol}`)
-          ]);
-          const [optionsJson, historyJson, quoteJson] = await Promise.all([
-            optionsRes.json(),
-            historyRes.json(),
-            quoteRes.json()
-          ]);
-          const historySource = historyJson?.source || "unknown";
-          const hasRealHistory = Array.isArray(historyJson?.results) && historyJson.results.length >= 90;
-          const bars = hasRealHistory ? historyJson.results : generateMockHistory(stock.symbol);
-          const historical = calculateHistoricalMetrics(bars);
-          const quotePrice = Number(quoteJson?.price || 0) || undefined;
-          const contract = pickOptionContract(optionsJson?.results, historical, quotePrice);
-          const finalHistorySource = hasRealHistory ? historySource : "simulated";
+      const responses: TerminalOption[] = [];
 
-          return contract
-            ? normalizePolygonOption(stock, contract, historical, quotePrice, finalHistorySource)
-            : buildSyntheticOption(stock, historical, quotePrice, finalHistorySource);
-        })
-      );
+      // Process stocks in batches to avoid rate limiting
+      for (let i = 0; i < STOCKS.length; i += BATCH_SIZE) {
+        const batch = STOCKS.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(batch.map(fetchOneStock));
+        responses.push(...batchResults);
 
-      setData(responses);
+        // Update data progressively so the UI shows results as they come in
+        setData([...responses]);
+
+        // Small delay between batches to avoid rate limits
+        if (i + BATCH_SIZE < STOCKS.length) {
+          await delay(DELAY_BETWEEN_BATCHES_MS);
+        }
+      }
+
       setStatus("LIVE");
       setLastRefresh(new Date().toLocaleTimeString());
     } catch {

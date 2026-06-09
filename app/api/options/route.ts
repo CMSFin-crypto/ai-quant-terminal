@@ -3,7 +3,7 @@ import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 export async function GET(req: Request) {
   const ip = clientIp(req);
-  const limit = rateLimit(ip, 60, 60_000);
+  const limit = rateLimit(ip, 300, 60_000);
 
   if (!limit.allowed) {
     return NextResponse.json(
