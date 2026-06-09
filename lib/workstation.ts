@@ -42,6 +42,8 @@ export type TerminalOption = {
   sector: Stock["sector"];
   underlyingPrice: number;
   strike: number;
+  dte: number;
+  expirationDate: string;
   iv: number;
   delta: number;
   gamma: number;
@@ -251,6 +253,8 @@ function mockOption(
     sector: stock.sector,
     underlyingPrice: spot,
     strike,
+    dte: 30,
+    expirationDate: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
     iv,
     delta,
     gamma,
@@ -296,14 +300,27 @@ export function normalizePolygonOption(
   const apiSpot = Number(first?.underlying_asset?.price || 0) || undefined;
   const spot = resolveSpot(historical, quotePrice || apiSpot);
   const alignedHistorical = alignHistoricalSpot(historical, spot);
-  const fairValue = blackScholes(spot, strike, 30 / 365, 0.05, iv || 0.2, optionType);
-  const greeks = blackScholesGreeks(spot, strike, 30 / 365, 0.05, iv || 0.2, optionType);
+
+  // Compute actual DTE from contract expiration date
+  const expirationStr = first?.details?.expiration_date;
+  const expirationMs = expirationStr
+    ? new Date(`${expirationStr}T00:00:00Z`).getTime()
+    : Date.now() + 30 * 86_400_000;
+  const actualDTE = Math.max(1, Math.round((expirationMs - Date.now()) / 86_400_000));
+  const dteFraction = actualDTE / 365;
+
+  // Risk-free rate approximation (current ~4.3% as of 2026)
+  const riskFreeRate = 0.043;
+  const ivForPricing = iv > 0.01 ? iv : 0.2;
+
+  const fairValue = blackScholes(spot, strike, dteFraction, riskFreeRate, ivForPricing, optionType);
+  const greeks = blackScholesGreeks(spot, strike, dteFraction, riskFreeRate, ivForPricing, optionType);
   const delta = Number(first?.greeks?.delta ?? greeks.delta);
   const gamma = Number(first?.greeks?.gamma ?? greeks.gamma);
   const theta = Number(first?.greeks?.theta ?? greeks.theta);
   const vega = Number(greeks.vega.toFixed(4));
   const rho = Number(greeks.rho.toFixed(4));
-  const mc = monteCarlo(spot, Math.max((iv || 0.2) * 0.85, alignedHistorical.realizedVol30, 0.12), 0.05, 30, 5000, hashSymbol(stock.symbol));
+  const mc = monteCarlo(spot, Math.max((ivForPricing) * 0.85, alignedHistorical.realizedVol30, 0.12), riskFreeRate, actualDTE, 5000, hashSymbol(stock.symbol));
   const rawSignal = signalEngine({ delta, gamma, theta, iv, volume, openInterest, type: optionType });
   const score = Math.max(0, Math.min(100, rawSignal.score + alignedHistorical.confidenceBoost));
   const signal = {
@@ -329,6 +346,8 @@ export function normalizePolygonOption(
     ...fallback,
     underlyingPrice: spot,
     strike,
+    dte: actualDTE,
+    expirationDate: expirationStr || fallback.expirationDate,
     iv,
     delta,
     gamma,
@@ -395,11 +414,14 @@ export function pickOptionContract(
         ? new Date(`${contract.details.expiration_date}T00:00:00Z`).getTime()
         : now + 30 * 86_400_000;
       const dte = Math.max(1, Math.round((expiration - now) / 86_400_000));
-      const target = type === "call" ? 1.02 : 0.98;
-      const score =
-        Math.abs(dte - 30) * 0.7 +
-        Math.abs(strike / spot - target) * 120 +
-        (type === preferredType ? 0 : 12);
+      // Prefer ATM (moneyness ~1.0) — closest to the money has best liquidity & tightest spreads
+      // OTM calls have cheap premium but low delta; ITM calls have intrinsic value but cost more
+      // ATM is the sweet spot for signal analysis
+      const moneyness = strike / spot;
+      const moneynessPenalty = Math.abs(moneyness - 1.0) * 100;
+      const dtePenalty = Math.abs(dte - 30) * 0.5;
+      const typeBonus = type === preferredType ? 0 : 8;
+      const score = moneynessPenalty + dtePenalty + typeBonus;
 
       return { contract, score };
     })
@@ -421,6 +443,7 @@ export function buildVolSurface(symbol: string) {
 export function buildRiskCurve(input: TerminalOption | string) {
   if (typeof input !== "string") {
     const isShort = input.signal.signal.startsWith("SELL");
+    const dteFraction = (input.dte || 30) / 365;
 
     return Array.from({ length: 17 }, (_, index) => {
       const move = index - 8;
@@ -428,8 +451,8 @@ export function buildRiskCurve(input: TerminalOption | string) {
       const shiftedValue = blackScholes(
         shiftedSpot,
         input.strike,
-        30 / 365,
-        0.05,
+        dteFraction,
+        0.043,
         input.iv,
         input.type
       );
