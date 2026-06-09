@@ -289,7 +289,7 @@ export default function Page() {
                   <table className="w-full min-w-[980px] border-collapse text-sm">
                     <thead className="bg-black/30 text-left text-xs uppercase tracking-[0.16em] text-terminal-muted">
                       <tr>
-                        {["Ticker", "Price", "Sector", "Signal", "Opp", "Quality", "Potential", "Win %", "IV/HV", "Trend", "Edge", "Premium"].map(
+                        {["Ticker", "Price", "Sector", "AI Action", "Opp", "Quality", "Potential", "Win %", "IV/HV", "Trend", "Edge", "Premium"].map(
                           (head) => (
                             <th key={head} className="border-b border-terminal-edge px-3 py-3">
                               {head}
@@ -316,7 +316,7 @@ export default function Page() {
                           </td>
                           <td className="px-3 py-3 text-terminal-muted">{item.sector}</td>
                           <td className="px-3 py-3">
-                            <SignalBadge signal={item.signal.signal} />
+                            <SignalBadge signal={analyzeHistorically(item).action} />
                           </td>
                           <td className="px-3 py-3 font-semibold text-terminal-green">{item.opportunityScore}</td>
                           <td className={item.dataQuality >= 75 ? "px-3 py-3 text-terminal-green" : item.dataQuality >= 50 ? "px-3 py-3 text-terminal-amber" : "px-3 py-3 text-terminal-red"}>
@@ -356,8 +356,11 @@ export default function Page() {
                 </div>
 
                 <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                  <StrategyPlan analysis={selectedAnalysis} />
                   <AnalystList title="Why" items={selectedAnalysis.reasons} tone="green" />
                   <AnalystList title="Risks" items={selectedAnalysis.risks} tone="amber" />
+                </div>
+                <div className="mt-4">
                   <AnalystList title="Checklist" items={selectedAnalysis.checklist} tone="cyan" />
                 </div>
               </Panel>
@@ -455,17 +458,18 @@ export default function Page() {
             {activeTab === "Strategy" && selectedOption && (
               <Panel title="Auto Strategy Builder" icon={<BrainCircuit size={17} />}>
                 <div className="grid gap-4 lg:grid-cols-3">
-                  <StrategyCard title="Primary" name={selectedOption.signal.signal} item={selectedOption} />
-                  <StrategyCard title="Hedge" name={selectedOption.type === "call" ? "Put Debit Spread" : "Call Debit Spread"} item={selectedOption} />
+                  <StrategyCard title="Primary" name={selectedAnalysis?.action || selectedOption.signal.signal} item={selectedOption} />
+                  <StrategyCard title="Structure" name={selectedAnalysis?.structure || "Defined-Risk Options Setup"} item={selectedOption} />
                   <StrategyCard title="Income" name="Defined-Risk Premium Sale" item={selectedOption} />
                 </div>
                 <div className="mt-4 rounded border border-terminal-edge bg-black/20 p-4">
                   <div className="text-xs uppercase tracking-[0.18em] text-terminal-muted">GPT Trade Reasoning</div>
                   <p className="mt-2 text-sm leading-6 text-terminal-text">
-                    {selectedOption.symbol} shows a {selectedOption.signal.confidence.toLowerCase()} confidence setup with
+                    {selectedOption.symbol} shows an AI action of {selectedAnalysis?.action || selectedOption.signal.signal} with
                     {" "}{(selectedOption.iv * 100).toFixed(1)}% implied volatility, {selectedOption.delta.toFixed(2)} delta, and
-                    {" "}{selectedOption.edge.toFixed(1)}% model edge versus Black-Scholes fair value. Macro risk is
-                    {" "}{macroScore(selectedOption).riskScore}/100, so position sizing should respect geopolitical headline risk, theta decay, and capped premium risk.
+                    {" "}{selectedOption.edge.toFixed(1)}% model edge versus Black-Scholes fair value. Preferred structure:
+                    {" "}{selectedAnalysis?.structure || "defined-risk options setup"}. Macro risk is
+                    {" "}{macroScore(selectedOption).riskScore}/100, so position sizing should respect headline risk, theta decay, and capped premium risk.
                   </p>
                 </div>
               </Panel>
@@ -502,7 +506,7 @@ export default function Page() {
                       <div className="text-3xl font-semibold text-white">{selectedOption.symbol}</div>
                       <div className="text-sm text-terminal-muted">{selectedOption.name}</div>
                     </div>
-                    <SignalBadge signal={selectedOption.signal.signal} />
+                    <SignalBadge signal={selectedAnalysis?.action || selectedOption.signal.signal} />
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <MiniStat label="Strike" value={`$${selectedOption.strike}`} />
@@ -511,6 +515,8 @@ export default function Page() {
                     <MiniStat label="Options Data" value={selectedOption.dataSource === "real-options" ? "Real" : "Synthetic"} />
                     <MiniStat label="History Data" value={formatSource(selectedOption.historySource)} />
                     <MiniStat label="Data Quality" value={`${selectedOption.dataQuality}/100`} />
+                    <MiniStat label="AI Action" value={selectedAnalysis?.action || selectedOption.signal.signal} />
+                    <MiniStat label="Risk" value={selectedAnalysis?.riskLabel || "Medium"} />
                     <MiniStat label="Fair Value" value={`$${selectedOption.fairValue.toFixed(2)}`} />
                     <MiniStat
                       label={selectedOption.dataSource === "real-options" ? "Last Price" : "Model Price"}
@@ -523,6 +529,11 @@ export default function Page() {
                     <MiniStat label="30D HV" value={`${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}%`} />
                     <MiniStat label="Max DD" value={`${(selectedOption.historical.maxDrawdown * 100).toFixed(1)}%`} />
                   </div>
+                  {selectedAnalysis && (
+                    <div className="mt-3 rounded border border-terminal-cyan/40 bg-terminal-cyan/10 p-3 text-xs leading-5 text-terminal-cyan">
+                      {selectedAnalysis.structure}. {selectedAnalysis.maxRiskText} {selectedAnalysis.maxRewardText}
+                    </div>
+                  )}
                   {selectedOption.warnings.length > 0 && (
                     <div className="mt-3 rounded border border-terminal-amber/40 bg-terminal-amber/10 p-3 text-xs leading-5 text-terminal-amber">
                       {selectedOption.warnings.join(" ")}
@@ -546,7 +557,7 @@ export default function Page() {
                     </div>
                     <div className="text-right">
                       <div className="font-semibold text-terminal-green">{item.opportunityScore}</div>
-                      <div className="text-xs text-terminal-muted">{item.signal.signal}</div>
+                      <div className="text-xs text-terminal-muted">{analyzeHistorically(item).action}</div>
                     </div>
                   </button>
                 ))}
@@ -674,6 +685,33 @@ function StrategyCard({
       <div className="mt-4 grid grid-cols-2 gap-2">
         <MiniStat label="Score" value={`${item.signal.score}`} />
         <MiniStat label="Risk" value={money.format(Math.max(item.price * 100, 100))} />
+      </div>
+    </div>
+  );
+}
+
+function StrategyPlan({
+  analysis
+}: {
+  analysis: ReturnType<typeof analyzeHistorically>;
+}) {
+  return (
+    <div className="rounded border border-terminal-edge bg-black/20 p-4">
+      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-terminal-cyan">
+        Trade Plan
+      </div>
+      <div className="mt-3 space-y-3 text-sm leading-5 text-terminal-text">
+        <MiniStat label="Bias" value={analysis.bias} />
+        <MiniStat label="Structure" value={analysis.structure} />
+        <MiniStat label="Risk Level" value={analysis.riskLabel} />
+        <div className="rounded border border-terminal-edge bg-black/20 p-2">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-terminal-muted">Max Risk</div>
+          <div className="mt-1 text-sm text-white">{analysis.maxRiskText}</div>
+        </div>
+        <div className="rounded border border-terminal-edge bg-black/20 p-2">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-terminal-muted">Reward</div>
+          <div className="mt-1 text-sm text-white">{analysis.maxRewardText}</div>
+        </div>
       </div>
     </div>
   );
