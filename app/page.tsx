@@ -363,6 +363,7 @@ export default function Page() {
                     selected={selected}
                     onSelect={setSelected}
                     selectedSector={selectedSector}
+                    selectedAnalysis={selectedAnalysis}
                   />
                 )}
 
@@ -408,14 +409,14 @@ export default function Page() {
               </section>
 
               <aside className="flex min-w-0 flex-col gap-4">
+                <TopSignalsPanel topSignals={topSignals} onSelect={setSelected} />
+
                 {selectedOption && (
                   <SelectedContractPanel
                     selectedOption={selectedOption}
                     selectedAnalysis={selectedAnalysis}
                   />
                 )}
-
-                <TopSignalsPanel topSignals={topSignals} onSelect={setSelected} />
 
                 <SectorHeatmapPanel sectors={sectors} />
               </aside>
