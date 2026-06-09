@@ -20,7 +20,7 @@ export function signalEngine(opt: OptionInput) {
 
   score = Math.max(0, Math.min(100, Math.round(score)));
 
-  let signal = "HOLD";
+  let signal: "BUY CALL" | "SELL CALL" | "BUY PUT" | "SELL PUT" | "WATCH" | "AVOID" = "WATCH";
   if (score >= 78 && opt.delta > 0 && opt.iv <= 0.55) signal = "BUY CALL";
   if (score >= 78 && opt.delta > 0 && opt.iv > 0.55) signal = "SELL PUT";
   if (score >= 78 && opt.delta < 0 && opt.iv <= 0.55) signal = "BUY PUT";

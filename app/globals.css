@@ -17,7 +17,15 @@ body {
     linear-gradient(180deg, rgba(7, 17, 15, 0.96), rgba(4, 8, 7, 1)),
     radial-gradient(circle at top left, rgba(54, 242, 155, 0.14), transparent 34%);
   color: #eefcf7;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Monospace font for data/numbers */
+.font-mono,
+td,
+th,
+[data-mono] {
+  font-family: var(--font-jetbrains), 'Fira Code', 'SF Mono', 'Consolas', monospace;
 }
 
 button,

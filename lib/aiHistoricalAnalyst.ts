@@ -115,7 +115,7 @@ export function analyzeHistorically(option: TerminalOption): AnalystVerdict {
 
   const risks = [
     `Historical max drawdown is ${pct(historical.maxDrawdown)}, so downside gaps must be sized conservatively.`,
-    `Daily 95% VaR is around ${pct(historical.var95Daily)}, based on the available return history.`,
+    `Daily 95% VaR is around ${pct(historical.var95)}, based on the available return history.`,
     option.dataSource === "synthetic-options"
       ? "Options data is synthetic, so treat fair value and model price as estimates until a real options feed is connected."
       : "Options data is real from the connected options feed.",

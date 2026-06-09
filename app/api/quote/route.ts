@@ -1,6 +1,17 @@
 import { NextResponse } from "next/server";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 export async function GET(req: Request) {
+  const ip = clientIp(req);
+  const limit = rateLimit(ip, 60, 60_000);
+
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded", retryAfterMs: limit.retryAfterMs },
+      { status: 429 }
+    );
+  }
+
   const { searchParams } = new URL(req.url);
   const symbol = searchParams.get("symbol");
   const apiKey = process.env.FINNHUB_API_KEY || process.env.NEXT_PUBLIC_FINNHUB_API_KEY;

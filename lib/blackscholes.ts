@@ -61,6 +61,14 @@ export function blackScholes(
   return safeK * Math.exp(-r * safeT) * normalCDF(-d2) - safeS * normalCDF(-d1);
 }
 
+export type BlackScholesGreeks = {
+  delta: number;
+  gamma: number;
+  theta: number;
+  vega: number;
+  rho: number;
+};
+
 export function blackScholesGreeks(
   S: number,
   K: number,
@@ -68,23 +76,37 @@ export function blackScholesGreeks(
   r: number,
   sigma: number,
   type: "call" | "put"
-) {
+): BlackScholesGreeks {
   const { d1, d2, safeS, safeK, safeSigma, safeT } = dValues(S, K, T, r, sigma);
   const pdf = normalPDF(d1);
+  const sqrtT = Math.sqrt(safeT);
+
   const delta = type === "call" ? normalCDF(d1) : normalCDF(d1) - 1;
-  const gamma = pdf / (safeS * safeSigma * Math.sqrt(safeT));
+  const gamma = pdf / (safeS * safeSigma * sqrtT);
+
+  // Vega: sensitivity to 1% change in implied volatility (per 1% move)
+  const vega = (safeS * pdf * sqrtT) / 100;
+
   const thetaCall =
-    (-(safeS * pdf * safeSigma) / (2 * Math.sqrt(safeT)) -
+    (-(safeS * pdf * safeSigma) / (2 * sqrtT) -
       r * safeK * Math.exp(-r * safeT) * normalCDF(d2)) /
     365;
   const thetaPut =
-    (-(safeS * pdf * safeSigma) / (2 * Math.sqrt(safeT)) +
+    (-(safeS * pdf * safeSigma) / (2 * sqrtT) +
       r * safeK * Math.exp(-r * safeT) * normalCDF(-d2)) /
     365;
+
+  // Rho: sensitivity to 1% change in risk-free rate (per 1% move)
+  const rhoCall =
+    safeK * Math.exp(-r * safeT) * normalCDF(d2) * safeT / 100;
+  const rhoPut =
+    -safeK * Math.exp(-r * safeT) * normalCDF(-d2) * safeT / 100;
 
   return {
     delta,
     gamma,
-    theta: type === "call" ? thetaCall : thetaPut
+    theta: type === "call" ? thetaCall : thetaPut,
+    vega,
+    rho: type === "call" ? rhoCall : rhoPut
   };
 }

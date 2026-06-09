@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 function daysAgo(days: number) {
   const date = new Date();
@@ -31,7 +32,8 @@ function parseStooqCsv(csv: string) {
     .filter((bar) => Number.isFinite(bar.t) && Number.isFinite(bar.c) && bar.c > 0);
 }
 
-function parseFinnhubCandles(data: any) {
+// Finnhub candle data is loosely typed from the API
+function parseFinnhubCandles(data: { s?: string; c?: number[]; t?: number[]; o?: number[]; h?: number[]; l?: number[]; v?: number[] }) {
   if (data?.s !== "ok" || !Array.isArray(data?.c)) return [];
 
   return data.c
@@ -43,7 +45,7 @@ function parseFinnhubCandles(data: any) {
       c: Number(close),
       v: Number(data.v?.[index] || 0)
     }))
-    .filter((bar: any) => Number.isFinite(bar.t) && Number.isFinite(bar.c) && bar.c > 0);
+    .filter((bar) => Number.isFinite(bar.t) && Number.isFinite(bar.c) && bar.c > 0);
 }
 
 async function fetchStooqHistory(symbol: string, days: number) {
@@ -93,6 +95,16 @@ async function fetchFreeHistory(symbol: string, days: number) {
 }
 
 export async function GET(req: Request) {
+  const ip = clientIp(req);
+  const limit = rateLimit(ip, 60, 60_000);
+
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded", retryAfterMs: limit.retryAfterMs },
+      { status: 429 }
+    );
+  }
+
   const { searchParams } = new URL(req.url);
   const symbol = searchParams.get("symbol");
   const days = Number(searchParams.get("days") || 365);

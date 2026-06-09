@@ -5,6 +5,37 @@ import { monteCarlo } from "@/lib/montecarlo";
 import { signalEngine } from "@/lib/signalEngine";
 import type { Stock } from "@/lib/sectors";
 
+/**
+ * Polygon option contract shape from the REST API.
+ * Only the fields we actually read are declared.
+ */
+export interface PolygonOptionContract {
+  details?: {
+    contract_type?: string;
+    strike_price?: number;
+    expiration_date?: string;
+  };
+  implied_volatility?: number;
+  last_quote?: {
+    midpoint?: number;
+  };
+  last_trade?: {
+    price?: number;
+  };
+  day?: {
+    volume?: number;
+  };
+  open_interest?: number;
+  underlying_asset?: {
+    price?: number;
+  };
+  greeks?: {
+    delta?: number;
+    gamma?: number;
+    theta?: number;
+  };
+}
+
 export type TerminalOption = {
   symbol: string;
   name: string;
@@ -15,6 +46,8 @@ export type TerminalOption = {
   delta: number;
   gamma: number;
   theta: number;
+  vega: number;
+  rho: number;
   price: number;
   type: "call" | "put";
   volume: number;
@@ -81,8 +114,14 @@ function calculateOpportunityScore({
   );
 }
 
+/** FNV-1a hash – much better distribution than a char-code sum. */
 function hashSymbol(symbol: string) {
-  return symbol.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  let hash = 0x811c9dc5; // FNV offset basis
+  for (let i = 0; i < symbol.length; i++) {
+    hash ^= symbol.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193); // FNV prime
+  }
+  return hash >>> 0; // ensure unsigned
 }
 
 function resolveSpot(historical: HistoricalMetrics, quotePrice?: number) {
@@ -183,7 +222,9 @@ function mockOption(
   const delta = Number(greeks.delta.toFixed(2));
   const gamma = Number(greeks.gamma.toFixed(3));
   const theta = Number(greeks.theta.toFixed(3));
-  const mc = monteCarlo(spot, Math.max(iv * 0.85, historical.realizedVol30, 0.12), 0.05, 30, 800, seed);
+  const vega = Number(greeks.vega.toFixed(4));
+  const rho = Number(greeks.rho.toFixed(4));
+  const mc = monteCarlo(spot, Math.max(iv * 0.85, historical.realizedVol30, 0.12), 0.05, 30, 5000, seed);
   const signal = signalEngine({ delta, gamma, theta, iv, volume, openInterest, type });
   const edge = ((fairValue - price) / Math.max(price, 1)) * 100;
   const upsidePotential = directionalPotential(type, spot, mc);
@@ -209,6 +250,8 @@ function mockOption(
     delta,
     gamma,
     theta,
+    vega,
+    rho,
     price,
     type,
     volume,
@@ -232,7 +275,7 @@ function mockOption(
 
 export function normalizePolygonOption(
   stock: Stock,
-  first: any,
+  first: PolygonOptionContract,
   historical = calculateHistoricalMetrics(generateMockHistory(stock.symbol)),
   quotePrice?: number,
   historySource = "unknown"
@@ -252,7 +295,9 @@ export function normalizePolygonOption(
   const delta = Number(first?.greeks?.delta ?? greeks.delta);
   const gamma = Number(first?.greeks?.gamma ?? greeks.gamma);
   const theta = Number(first?.greeks?.theta ?? greeks.theta);
-  const mc = monteCarlo(spot, Math.max((iv || 0.2) * 0.85, alignedHistorical.realizedVol30, 0.12), 0.05, 30, 800, hashSymbol(stock.symbol));
+  const vega = Number(greeks.vega.toFixed(4));
+  const rho = Number(greeks.rho.toFixed(4));
+  const mc = monteCarlo(spot, Math.max((iv || 0.2) * 0.85, alignedHistorical.realizedVol30, 0.12), 0.05, 30, 5000, hashSymbol(stock.symbol));
   const rawSignal = signalEngine({ delta, gamma, theta, iv, volume, openInterest, type: optionType });
   const score = Math.max(0, Math.min(100, rawSignal.score + alignedHistorical.confidenceBoost));
   const signal = {
@@ -271,7 +316,7 @@ export function normalizePolygonOption(
     signalScore: signal.score,
     upsidePotential
   });
-  const dataSource = first ? "real-options" : "synthetic-options";
+  const dataSource: TerminalOption["dataSource"] = first ? "real-options" : "synthetic-options";
   const diagnostics = dataDiagnostics(historySource, dataSource);
 
   return {
@@ -282,6 +327,8 @@ export function normalizePolygonOption(
     delta,
     gamma,
     theta,
+    vega,
+    rho,
     price,
     type: optionType,
     volume,
@@ -316,7 +363,7 @@ export function buildSyntheticOption(
 }
 
 export function pickOptionContract(
-  contracts: any[] | undefined,
+  contracts: PolygonOptionContract[] | undefined,
   historical: HistoricalMetrics,
   quotePrice?: number
 ) {

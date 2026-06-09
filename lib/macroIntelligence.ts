@@ -139,7 +139,14 @@ export const macroEvents: MacroEvent[] = [
   }
 ];
 
-export function macroScore(option: TerminalOption) {
+export type MacroResult = {
+  riskScore: number;
+  ivRegime: string;
+  positionScale: string;
+  events: MacroEvent[];
+};
+
+export function macroScore(option: TerminalOption): MacroResult {
   const events = macroEvents.filter((event) => event.sectors.includes(option.sector));
   const weightedRisk =
     events.reduce((sum, event) => {

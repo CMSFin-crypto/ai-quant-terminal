@@ -14,7 +14,8 @@ export type HistoricalMetrics = {
   momentum30: number;
   momentum90: number;
   maxDrawdown: number;
-  var95Daily: number;
+  /** 95% Value-at-Risk (daily) — positive number representing the 5th-percentile loss. */
+  var95: number;
   trend: "Uptrend" | "Downtrend" | "Range";
   confidenceBoost: number;
 };
@@ -72,7 +73,8 @@ export function calculateHistoricalMetrics(bars: PriceBar[]): HistoricalMetrics 
   const momentum30 = momentum(closes, 30);
   const momentum90 = momentum(closes, 90);
   const maxDd = maxDrawdown(closes);
-  const var95Daily = percentile(returns, 0.05);
+  // 95% VaR: the loss at the 5th percentile, reported as a positive number
+  const var95 = -percentile(returns, 0.05);
 
   let trend: HistoricalMetrics["trend"] = "Range";
   if (momentum30 > 0.04 && momentum90 > 0.02) trend = "Uptrend";
@@ -94,7 +96,7 @@ export function calculateHistoricalMetrics(bars: PriceBar[]): HistoricalMetrics 
     momentum30,
     momentum90,
     maxDrawdown: maxDd,
-    var95Daily,
+    var95,
     trend,
     confidenceBoost
   };
