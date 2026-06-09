@@ -25,7 +25,7 @@ import { SkeletonLoader } from "./components/SkeletonLoader";
 import { Panel } from "./components/Panel";
 import { Metric } from "./components/Metric";
 import { CommandPanel, tabs, type Tab } from "./components/CommandPanel";
-import { SectorSidebar } from "./components/SectorSidebar";
+import { SectorTabs } from "./components/SectorTabs";
 import { ScannerTab } from "./components/ScannerTab";
 import { AIAnalystTab } from "./components/AIAnalystTab";
 import { MacroTab } from "./components/MacroTab";
@@ -320,23 +320,35 @@ export default function Page() {
       ) : (
         <main className="terminal-grid min-h-screen bg-terminal-bg text-terminal-text">
           <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4 px-4 py-4 lg:px-6">
-            <header className="flex flex-col gap-4 border-b border-terminal-edge pb-4 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <div className="flex items-center gap-3 text-sm uppercase tracking-[0.24em] text-terminal-green">
-                  <Radar size={18} />
-                  Ultra Hedge Fund Workstation V2
+            <header className="flex flex-col gap-4 border-b border-terminal-edge pb-4">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                  <div className="flex items-center gap-3 text-sm uppercase tracking-[0.24em] text-terminal-green">
+                    <Radar size={18} />
+                    Ultra Hedge Fund Workstation V2
+                  </div>
+                  <h1 className="mt-2 text-3xl font-semibold tracking-normal text-white md:text-5xl">
+                    Real Quant AI Terminal
+                  </h1>
                 </div>
-                <h1 className="mt-2 text-3xl font-semibold tracking-normal text-white md:text-5xl">
-                  Real Quant AI Terminal
-                </h1>
+
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                  <Metric label="Status" value={status} accent={status === "LIVE" ? "green" : "amber"} />
+                  <Metric label="Refresh" value={lastRefresh} />
+                  <Metric label="Premium" value={money.format(grossPremium)} />
+                  <Metric label="Signals" value={`${highConviction}/${data.length || 25}`} accent="cyan" />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                <Metric label="Status" value={status} accent={status === "LIVE" ? "green" : "amber"} />
-                <Metric label="Refresh" value={lastRefresh} />
-                <Metric label="Premium" value={money.format(grossPremium)} />
-                <Metric label="Signals" value={`${highConviction}/${data.length || 25}`} accent="cyan" />
-              </div>
+              {/* Sector tabs as rubrics */}
+              <SectorTabs
+                sectors={sectors}
+                data={data}
+                selectedSector={selectedSector}
+                rankedData={rankedData}
+                selected={selected}
+                onSelectSector={handleSectorSelect}
+              />
             </header>
 
             <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[260px_1fr_360px]">
@@ -351,14 +363,6 @@ export default function Page() {
                   onRefresh={handleRefresh}
                   refreshDisabled={refreshDisabled}
                   refreshCountdown={refreshCountdown}
-                />
-                <SectorSidebar
-                  sectors={sectors}
-                  data={data}
-                  selectedSector={selectedSector}
-                  rankedData={rankedData}
-                  selected={selected}
-                  onSelectSector={handleSectorSelect}
                 />
               </aside>
 
