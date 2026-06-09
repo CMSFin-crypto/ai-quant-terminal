@@ -86,10 +86,12 @@ export function analyzeHistorically(option: TerminalOption): AnalystVerdict {
               : "Reduce exposure — risk factors elevated";
 
   const riskLabel: AnalystVerdict["riskLabel"] =
-    option.dataQuality < 60 || macro.riskScore >= 75
+    option.dataQuality < 40
       ? "Very High"
       : action.startsWith("SELL")
         ? "High"
+        : macro.riskScore >= 80 && Math.abs(historical.maxDrawdown) > 0.25
+          ? "High"
         : option.iv > 0.55 || Math.abs(historical.maxDrawdown) > 0.25
           ? "Medium"
           : "Low";

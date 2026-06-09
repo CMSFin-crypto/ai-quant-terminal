@@ -150,8 +150,9 @@ export function macroScore(option: TerminalOption): MacroResult {
   const events = macroEvents.filter((event) => event.sectors.includes(option.sector));
   const weightedRisk =
     events.reduce((sum, event) => {
+      // Lower direction multipliers so macro risk doesn't dominate the risk label
       const direction =
-        event.impact === "Bullish" ? -0.5 : event.impact === "Bearish" ? 0.8 : event.impact === "Defensive" ? 1 : 1.15;
+        event.impact === "Bullish" ? -0.3 : event.impact === "Bearish" ? 0.5 : event.impact === "Defensive" ? 0.6 : 0.7;
       return sum + event.confidence * sectorSensitivity[option.sector][event.source] * direction;
     }, 0) / Math.max(events.length, 1);
 
