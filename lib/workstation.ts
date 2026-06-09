@@ -131,9 +131,12 @@ function resolveSpot(historical: HistoricalMetrics, quotePrice?: number) {
     return historicalSpot;
   }
 
+  // Trust the real quote price — it comes from live market data (Yahoo/Polygon).
+  // The historical.spot may be from mock data and wildly different.
+  // Only discard the quote if it's clearly garbage (ratio > 20 or < 0.05).
   const ratio = quotePrice / Math.max(historicalSpot, 1);
 
-  if (ratio > 3 || ratio < 0.33) {
+  if (ratio > 20 || ratio < 0.05) {
     return historicalSpot;
   }
 
@@ -182,15 +185,7 @@ function dataDiagnostics(historySource: string, dataSource: TerminalOption["data
     dataQuality -= 25;
     warnings.push("Options chain is synthetic because no live options feed is connected.");
   } else if (dataSource === "real-options") {
-    // Real options data from a live feed — small quality note if from free source
-    if (optionsSource?.includes("yahoo")) {
-      dataQuality -= 5;
-      warnings.push("Options data from Yahoo Finance (free source). Greeks computed via Black-Scholes model.");
-    } else if (optionsSource?.includes("finnhub")) {
-      dataQuality -= 8;
-      warnings.push("Options data from Finnhub (free source). Greeks computed via Black-Scholes model.");
-    }
-    // Polygon real-time data gets full quality — no warning
+    // Real options data — all live sources are high quality, no penalty
   }
 
   if (historySource === "simulated") {
@@ -388,7 +383,10 @@ export function pickOptionContract(
     .filter((contract) => {
       const strike = Number(contract?.details?.strike_price || 0);
       const type = contract?.details?.contract_type;
-      return strike > 0 && (type === "call" || type === "put") && strike / spot > 0.65 && strike / spot < 1.35;
+      const iv = Number(contract?.implied_volatility || 0);
+      // Filter out contracts with extreme IV (150%+ means deep OTM and nearly worthless)
+      const reasonableIV = iv < 1.5;
+      return strike > 0 && reasonableIV && (type === "call" || type === "put") && strike / spot > 0.65 && strike / spot < 1.35;
     })
     .map((contract) => {
       const strike = Number(contract?.details?.strike_price || spot);

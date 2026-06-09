@@ -24,38 +24,42 @@ export function analyzeHistorically(option: TerminalOption): AnalystVerdict {
   const historical = option.historical;
   const macro = macroScore(option);
   const ivHvSpread = option.iv - historical.realizedVol30;
-  const dataPenalty = option.dataQuality < 50 ? -24 : option.dataQuality < 70 ? -10 : 0;
+  const dataPenalty = option.dataQuality < 50 ? -20 : option.dataQuality < 70 ? -8 : 0;
   const trendScore =
-    historical.trend === "Uptrend" ? 18 : historical.trend === "Downtrend" ? -16 : 0;
-  const momentumScore = historical.momentum30 > 0 ? 8 : historical.momentum30 < 0 ? -8 : 0;
-  const volatilityScore = ivHvSpread < -0.05 ? 12 : ivHvSpread > 0.12 ? -10 : 3;
+    historical.trend === "Uptrend" ? 16 : historical.trend === "Downtrend" ? -12 : 2;
+  const momentumScore = historical.momentum30 > 0 ? 6 : historical.momentum30 < 0 ? -6 : 0;
+  const volatilityScore = ivHvSpread < -0.05 ? 10 : ivHvSpread > 0.12 ? -8 : 4;
   const drawdownScore =
-    historical.maxDrawdown < -0.35 ? -16 : historical.maxDrawdown < -0.22 ? -9 : 4;
+    historical.maxDrawdown < -0.35 ? -12 : historical.maxDrawdown < -0.22 ? -6 : 3;
   const optionScore = option.signal.score - 50;
-  const macroPenalty = macro.riskScore >= 80 ? -14 : macro.riskScore >= 65 ? -8 : 0;
+  const macroPenalty = macro.riskScore >= 80 ? -8 : macro.riskScore >= 65 ? -4 : 0;
   const total = 50 + trendScore + momentumScore + volatilityScore + drawdownScore + optionScore + macroPenalty + dataPenalty;
   const confidence = Math.max(0, Math.min(100, Math.round(total)));
 
   let stance: AnalystVerdict["stance"] = "Neutral";
-  if (confidence >= 82) stance = "Aggressive Bullish";
-  else if (confidence >= 68) stance = "Bullish";
-  else if (confidence <= 30) stance = "Bearish";
-  else if (confidence <= 45) stance = "Defensive";
+  if (confidence >= 72) stance = "Aggressive Bullish";
+  else if (confidence >= 58) stance = "Bullish";
+  else if (confidence <= 28) stance = "Bearish";
+  else if (confidence <= 40) stance = "Defensive";
 
   const expensiveVol = option.iv > historical.realizedVol30 * 1.35 && option.iv > 0.35;
   const cheapVol = option.iv < historical.realizedVol30 * 0.85 || option.iv < 0.28;
   const highMacroRisk = macro.riskScore >= 75;
 
   let action: AnalystVerdict["action"] = "WATCH";
-  if (option.dataQuality < 50 || highMacroRisk) action = "AVOID";
-  else if (option.dataQuality < 70) action = "WATCH";
+  if (option.dataQuality < 40) action = "AVOID";
+  else if (option.dataQuality < 60) action = "WATCH";
   else if (stance === "Aggressive Bullish" && cheapVol) action = "BUY CALL";
   else if ((stance === "Bullish" || stance === "Aggressive Bullish") && expensiveVol) action = "SELL PUT";
+  else if (stance === "Aggressive Bullish") action = "BUY CALL";
   else if (stance === "Bullish") action = "BUY CALL";
+  else if (stance === "Neutral" && cheapVol) action = "BUY CALL";
+  else if (stance === "Neutral") action = "WATCH";
   else if (stance === "Bearish" && cheapVol) action = "BUY PUT";
   else if (stance === "Bearish" && expensiveVol) action = "SELL CALL";
+  else if (stance === "Bearish") action = "BUY PUT";
   else if (stance === "Defensive" && expensiveVol) action = "SELL CALL";
-  else if (stance === "Defensive") action = "AVOID";
+  else if (stance === "Defensive") action = "WATCH";
 
   const bias: AnalystVerdict["bias"] =
     action.includes("CALL") && action.startsWith("BUY")
@@ -78,8 +82,8 @@ export function analyzeHistorically(option: TerminalOption): AnalystVerdict {
           : action === "SELL CALL"
             ? "Covered call or call credit spread"
             : action === "WATCH"
-              ? "No trade yet"
-              : "No trade";
+              ? "Monitor for entry — conditions not yet aligned"
+              : "Reduce exposure — risk factors elevated";
 
   const riskLabel: AnalystVerdict["riskLabel"] =
     option.dataQuality < 60 || macro.riskScore >= 75
@@ -95,7 +99,7 @@ export function analyzeHistorically(option: TerminalOption): AnalystVerdict {
       ? `Premium paid, about $${(option.price * 100).toFixed(0)} per contract.`
       : action === "SELL PUT" || action === "SELL CALL"
         ? "Undefined if naked. Prefer defined-risk spread or covered/cash-secured setup."
-        : "No position risk because the model does not recommend entry.";
+        : "Waiting for a clearer setup before recommending entry.";
 
   const maxRewardText =
     action === "BUY CALL"
@@ -104,7 +108,7 @@ export function analyzeHistorically(option: TerminalOption): AnalystVerdict {
         ? "Reward rises if the stock falls below strike before expiry."
         : action === "SELL PUT" || action === "SELL CALL"
           ? `Premium income, about $${(option.price * 100).toFixed(0)} per contract before spread caps.`
-          : "No reward target until a cleaner setup appears.";
+          : "Evaluating conditions for a potential entry point.";
 
   const reasons = [
     `${historical.trend} regime with 30D momentum at ${pct(historical.momentum30)} and 90D momentum at ${pct(historical.momentum90)}.`,
@@ -117,8 +121,8 @@ export function analyzeHistorically(option: TerminalOption): AnalystVerdict {
     `Historical max drawdown is ${pct(historical.maxDrawdown)}, so downside gaps must be sized conservatively.`,
     `Daily 95% VaR is around ${pct(historical.var95)}, based on the available return history.`,
     option.dataSource === "synthetic-options"
-      ? "Options data is synthetic, so treat fair value and model price as estimates until a real options feed is connected."
-      : "Options data is real from the connected options feed.",
+      ? "Options data is synthetic — treat fair value and model price as estimates until a live feed is connected."
+      : "Options data is live from the market feed.",
     option.theta < -0.05
       ? `Theta decay is elevated at ${option.theta.toFixed(3)}, so time risk matters.`
       : `Theta decay is contained at ${option.theta.toFixed(3)}, but it still compounds every day.`
