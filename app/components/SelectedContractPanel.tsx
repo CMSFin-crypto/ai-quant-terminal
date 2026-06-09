@@ -34,7 +34,11 @@ export function SelectedContractPanel({ selectedOption, selectedAnalysis }: Sele
           <MiniStat label="AI Action" value={selectedAnalysis?.action || selectedOption.signal.signal} />
           <MiniStat label="Risk" value={selectedAnalysis?.riskLabel || "Medium"} />
           <MiniStat
-            label="Market Price"
+            label="Fair Value"
+            value={`$${selectedOption.fairValue.toFixed(2)}`}
+          />
+          <MiniStat
+            label="Last Price"
             value={`$${selectedOption.price.toFixed(2)}`}
           />
           <MiniStat

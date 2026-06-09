@@ -110,3 +110,59 @@ export function blackScholesGreeks(
     rho: type === "call" ? rhoCall : rhoPut
   };
 }
+
+/**
+ * Solve for implied volatility using Newton-Raphson method.
+ * Given market price, find the σ that makes BS(S,K,T,r,σ,type) = marketPrice.
+ * This gives us the "true" IV consistent with the actual market price.
+ */
+export function impliedVolatility(
+  S: number,
+  K: number,
+  T: number,
+  r: number,
+  marketPrice: number,
+  type: "call" | "put",
+  initialSigma = 0.3,
+  maxIter = 50,
+  tolerance = 0.0001
+): number {
+  // Lower bound: intrinsic value
+  const intrinsic = type === "call"
+    ? Math.max(S - K * Math.exp(-r * T), 0)
+    : Math.max(K * Math.exp(-r * T) - S, 0);
+
+  if (marketPrice <= intrinsic + 0.01) {
+    // Option is at intrinsic — IV is near zero, return small value
+    return 0.05;
+  }
+
+  let sigma = Math.max(initialSigma, 0.05);
+  const sqrtT = Math.sqrt(Math.max(T, 1 / 365));
+
+  for (let i = 0; i < maxIter; i++) {
+    const price = blackScholes(S, K, T, r, sigma, type);
+    const diff = price - marketPrice;
+
+    if (Math.abs(diff) < tolerance) {
+      return sigma;
+    }
+
+    // Vega = S * N'(d1) * sqrt(T) — not divided by 100 here
+    const { d1, safeS, safeSigma } = dValues(S, K, T, r, sigma);
+    const vega = safeS * normalPDF(d1) * sqrtT;
+
+    if (vega < 1e-10) {
+      // Vega too small — avoid division by zero
+      break;
+    }
+
+    sigma = sigma - diff / vega;
+
+    // Keep sigma in reasonable bounds
+    if (sigma < 0.01) sigma = 0.01;
+    if (sigma > 5.0) sigma = 5.0;
+  }
+
+  return sigma;
+}

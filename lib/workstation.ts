@@ -1,4 +1,4 @@
-import { blackScholes, blackScholesGreeks } from "@/lib/blackscholes";
+import { blackScholes, blackScholesGreeks, impliedVolatility } from "@/lib/blackscholes";
 import type { HistoricalMetrics } from "@/lib/historicalAnalytics";
 import { calculateHistoricalMetrics, generateMockHistory } from "@/lib/historicalAnalytics";
 import { monteCarlo } from "@/lib/montecarlo";
@@ -311,15 +311,22 @@ export function normalizePolygonOption(
 
   // Risk-free rate approximation (current ~4.3% as of 2026)
   const riskFreeRate = 0.043;
-  const ivForPricing = iv > 0.01 ? iv : 0.2;
 
-  // For real options, the market price IS the fair value — it's determined by
-  // actual supply/demand. Black-Scholes with Yahoo IV can differ significantly
-  // from market price because Yahoo IV is smoothed / stale.
-  // We use BS only to compute a "model fair value" for edge analysis.
-  const modelFairValue = blackScholes(spot, strike, dteFraction, riskFreeRate, ivForPricing, optionType);
-  // Fair value shown to user = market price (the most accurate fair value)
-  const fairValue = price;
+  // Step 1: Compute true implied volatility from market price.
+  // Yahoo's reported IV can be stale/smoothed, so we solve for the exact IV
+  // that makes Black-Scholes price = market price (Newton-Raphson).
+  const yahooIV = iv > 0.01 ? iv : 0.3;
+  const solvedIV = price > 0.05
+    ? impliedVolatility(spot, strike, dteFraction, riskFreeRate, price, optionType, yahooIV)
+    : yahooIV;
+
+  // Use the solved IV (from market price) for all calculations
+  // This ensures BS price ≈ market price and Greeks are accurate
+  const ivForPricing = solvedIV;
+
+  // Step 2: Fair Value = BS with the true market-implied IV
+  // This should be very close to market price (within pennies)
+  const fairValue = blackScholes(spot, strike, dteFraction, riskFreeRate, ivForPricing, optionType);
   const greeks = blackScholesGreeks(spot, strike, dteFraction, riskFreeRate, ivForPricing, optionType);
   const delta = Number(first?.greeks?.delta ?? greeks.delta);
   const gamma = Number(first?.greeks?.gamma ?? greeks.gamma);
@@ -327,16 +334,16 @@ export function normalizePolygonOption(
   const vega = Number(greeks.vega.toFixed(4));
   const rho = Number(greeks.rho.toFixed(4));
   const mc = monteCarlo(spot, Math.max((ivForPricing) * 0.85, alignedHistorical.realizedVol30, 0.12), riskFreeRate, actualDTE, 5000, hashSymbol(stock.symbol));
-  const rawSignal = signalEngine({ delta, gamma, theta, iv, volume, openInterest, type: optionType });
+  const rawSignal = signalEngine({ delta, gamma, theta, iv: ivForPricing, volume, openInterest, type: optionType });
   const score = Math.max(0, Math.min(100, rawSignal.score + alignedHistorical.confidenceBoost));
   const signal = {
     ...rawSignal,
     score,
     confidence: score >= 82 ? "High" : score >= 68 ? "Medium" : score <= 35 ? "Defensive" : "Low"
   };
-  // Edge = model fair value vs market price. Positive = option is cheap vs model (buy).
-  // Since fairValue = price for real options, edge is based on modelFairValue.
-  const edge = ((modelFairValue - price) / Math.max(price, 1)) * 100;
+  // Edge = BS fair value vs market price. Should be near 0% now since we solved
+  // IV from market price. Any residual edge is from Newton-Raphson precision.
+  const edge = ((fairValue - price) / Math.max(price, 1)) * 100;
   const upsidePotential = directionalPotential(optionType, spot, mc);
   const profitProbability = directionalProbability(optionType, mc);
   const opportunityScore = calculateOpportunityScore({
@@ -356,7 +363,7 @@ export function normalizePolygonOption(
     strike,
     dte: actualDTE,
     expirationDate: expirationStr || fallback.expirationDate,
-    iv,
+    iv: ivForPricing,
     delta,
     gamma,
     theta,
