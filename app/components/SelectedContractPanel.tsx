@@ -14,51 +14,70 @@ interface SelectedContractPanelProps {
 }
 
 export function SelectedContractPanel({ selectedOption, selectedAnalysis }: SelectedContractPanelProps) {
+  // IBKR-style break-even: Strike + Premium for calls, Strike - Premium for puts
+  const breakEven = selectedOption.type === "call"
+    ? selectedOption.strike + selectedOption.price
+    : selectedOption.strike - selectedOption.price;
+
+  // OTM%: how far out-of-the-money as percentage
+  const otmPct = selectedOption.type === "call"
+    ? Math.max((selectedOption.strike - selectedOption.underlyingPrice) / selectedOption.underlyingPrice * 100, 0)
+    : Math.max((selectedOption.underlyingPrice - selectedOption.strike) / selectedOption.underlyingPrice * 100, 0);
+
   return (
-    <Panel title="Selected Contract" icon={<Gauge size={17} />}>
+    <Panel title="Contract Details" icon={<Gauge size={17} />}>
       <div>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-2xl sm:text-3xl font-semibold text-white truncate">{selectedOption.symbol}</div>
-            <div className="text-xs sm:text-sm text-terminal-muted truncate">{selectedOption.name}</div>
+            <div className="text-xs sm:text-sm text-terminal-muted truncate">
+              {selectedOption.type.toUpperCase()} · ${selectedOption.strike} · {selectedOption.expirationDate}
+            </div>
           </div>
           <SignalBadge signal={selectedAnalysis?.action || selectedOption.signal.signal} />
         </div>
 
-        {/* Key metrics — always visible, 2 cols on mobile, 3 on md+ */}
+        {/* Price & Value — IBKR style */}
         <div className="mt-3 grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3">
-          <MiniStat label="Strike" value={`$${selectedOption.strike}`} />
-          <MiniStat label="Stock Price" value={stockMoney.format(selectedOption.underlyingPrice)} />
-          <MiniStat label="Type" value={`${selectedOption.type.toUpperCase()} · ${selectedOption.moneyness}`} />
-          <MiniStat label="Fair Value" value={`$${selectedOption.fairValue.toFixed(2)}`} />
+          <MiniStat label="Undl" value={stockMoney.format(selectedOption.underlyingPrice)} />
+          <MiniStat label="Mark" value={`$${selectedOption.fairValue.toFixed(2)}`} />
+          <MiniStat label="Last" value={`$${selectedOption.price.toFixed(2)}`} />
           <MiniStat label="Intrinsic" value={`$${selectedOption.intrinsicValue.toFixed(2)}`} />
-          <MiniStat label="Time Value" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} />
-          <MiniStat label="Last Price" value={`$${selectedOption.price.toFixed(2)}`} />
-          <MiniStat label="Edge" value={`${selectedOption.edge >= 0 ? '+' : ''}${selectedOption.edge.toFixed(1)}%`} />
+          <MiniStat label="Extrinsic" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} />
+          <MiniStat label={selectedOption.moneyness} value={`${otmPct.toFixed(1)}% ${selectedOption.moneyness === "ITM" ? "ITM" : selectedOption.moneyness === "OTM" ? "OTM" : "ATM"}`} />
+        </div>
+
+        {/* Key metrics — IBKR terminology */}
+        <div className="mt-2 grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3">
+          <MiniStat label="Break Even" value={`$${breakEven.toFixed(2)}`} />
+          <MiniStat label="POP" value={`${selectedOption.profitProbability.toFixed(1)}%`} />
           <MiniStat label="DTE" value={`${selectedOption.dte || 30}d`} />
+          <MiniStat label="IV" value={`${(selectedOption.iv * 100).toFixed(1)}%`} />
+          <MiniStat label="HV 30D" value={`${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}%`} />
+          <MiniStat label="IV/HV" value={`${(selectedOption.iv * 100).toFixed(1)} / ${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}`} />
         </div>
 
-        {/* Secondary metrics — collapsible on very small screens */}
-        <div className="mt-2 grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3">
-          <MiniStat label="Win Prob" value={`${selectedOption.profitProbability.toFixed(1)}%`} />
-          <MiniStat label="Opportunity" value={`${selectedOption.opportunityScore}/100`} />
-          <MiniStat label="Move Potential" value={`+${selectedOption.upsidePotential.toFixed(1)}%`} />
-        </div>
-
-        {/* Data quality row */}
-        <div className="mt-2 grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3">
-          <MiniStat label="Options Data" value={selectedOption.dataSource === "real-options" ? "Live" : "Synthetic"} />
-          <MiniStat label="History Data" value={formatSource(selectedOption.historySource)} />
-          <MiniStat label="Data Quality" value={`${selectedOption.dataQuality}/100`} />
-        </div>
-
-        {/* Greeks */}
+        {/* Greeks — IBKR style */}
         <div className="mt-2 grid grid-cols-3 gap-1.5 sm:gap-2 sm:grid-cols-5">
           <MiniStat label="Delta" value={selectedOption.delta.toFixed(2)} />
           <MiniStat label="Gamma" value={selectedOption.gamma.toFixed(3)} />
           <MiniStat label="Theta" value={selectedOption.theta.toFixed(3)} />
           <MiniStat label="Vega" value={selectedOption.vega.toFixed(4)} />
-          <MiniStat label="IV" value={`${(selectedOption.iv * 100).toFixed(1)}%`} />
+          <MiniStat label="Rho" value={selectedOption.rho.toFixed(4)} />
+        </div>
+
+        {/* Volume & OI */}
+        <div className="mt-2 grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3">
+          <MiniStat label="Vol" value={selectedOption.volume.toLocaleString()} />
+          <MiniStat label="OI" value={selectedOption.openInterest.toLocaleString()} />
+          <MiniStat label="Vol/OI" value={`${(selectedOption.volume / Math.max(selectedOption.openInterest, 1)).toFixed(2)}`} />
+        </div>
+
+        {/* Data source */}
+        <div className="mt-2 grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3">
+          <MiniStat label="Feed" value={selectedOption.dataSource === "real-options" ? "Live" : "Synthetic"} />
+          <MiniStat label="Hist" value={formatSource(selectedOption.historySource)} />
+          <MiniStat label="Quality" value={`${selectedOption.dataQuality}/100`} />
         </div>
 
         {/* AI analysis note */}

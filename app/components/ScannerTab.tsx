@@ -5,7 +5,7 @@ import { Activity, ChevronDown, ChevronUp } from "lucide-react";
 import type { TerminalOption } from "@/lib/workstation";
 import type { AnalystVerdict } from "@/lib/aiHistoricalAnalyst";
 import { analyzeHistorically } from "@/lib/aiHistoricalAnalyst";
-import { money, stockMoney, formatSource } from "@/lib/utils";
+import { stockMoney, formatSource } from "@/lib/utils";
 import { Panel } from "./Panel";
 import { MiniStat } from "./MiniStat";
 import { SignalBadge } from "./SignalBadge";
@@ -35,16 +35,16 @@ export function ScannerTab({
 
   return (
     <Panel
-      title={selectedSector === "All" ? "Multi-Sector Options Scanner" : `${selectedSector} Scanner`}
+      title={selectedSector === "All" ? "Options Chain" : `${selectedSector} Options`}
       icon={<Activity size={17} />}
       flush
     >
-      {/* Desktop: table view (hidden on mobile) */}
+      {/* Desktop: table view */}
       <div className="hidden md:block thin-scrollbar overflow-x-auto">
         <table className="w-full min-w-[780px] border-collapse text-sm">
           <thead className="bg-black/30 text-left text-xs uppercase tracking-[0.16em] text-terminal-muted">
             <tr>
-              {["Ticker", "Price", "AI Action", "Opp", "Quality", "Potential", "Win %", "IV/HV", "Edge"].map(
+              {["Symbol", "Undl", "Right", "Mark", "IV", "Delta", "POP", "Score", "Vol/OI"].map(
                 (head) => (
                   <th key={head} className="border-b border-terminal-edge px-3 py-3">
                     {head}
@@ -75,7 +75,7 @@ export function ScannerTab({
         </table>
       </div>
 
-      {/* Mobile: card list view (hidden on desktop) */}
+      {/* Mobile: card list view */}
       <div className="md:hidden p-3 space-y-2">
         {filteredRankedData.map((item) => {
           const isSelected = selected === item.symbol;
@@ -103,9 +103,9 @@ export function ScannerTab({
                   </div>
                 </div>
                 <div className="mt-2 grid grid-cols-3 gap-1.5">
-                  <MiniStat label="Price" value={stockMoney.format(item.underlyingPrice)} />
-                  <MiniStat label="Opp" value={`${item.opportunityScore}`} />
-                  <MiniStat label="Edge" value={`${item.edge >= 0 ? '+' : ''}${item.edge.toFixed(1)}%`} />
+                  <MiniStat label="Undl" value={stockMoney.format(item.underlyingPrice)} />
+                  <MiniStat label="Mark" value={`$${item.fairValue.toFixed(2)}`} />
+                  <MiniStat label="IV" value={`${(item.iv * 100).toFixed(1)}%`} />
                 </div>
               </button>
 
@@ -113,18 +113,18 @@ export function ScannerTab({
               {isSelected && selectedOption && (
                 <div className="mt-1 rounded border border-terminal-cyan/30 bg-terminal-cyan/[0.03] p-3">
                   <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+                    <MiniStat label="Undl" value={stockMoney.format(selectedOption.underlyingPrice)} />
                     <MiniStat label="Strike" value={`$${selectedOption.strike}`} />
-                    <MiniStat label="Stock Price" value={stockMoney.format(selectedOption.underlyingPrice)} />
-                    <MiniStat label="Type" value={`${selectedOption.type.toUpperCase()} · ${selectedOption.moneyness}`} />
-                    <MiniStat label="Fair Value" value={`$${selectedOption.fairValue.toFixed(2)}`} />
+                    <MiniStat label="Right" value={`${selectedOption.type.toUpperCase()} · ${selectedOption.moneyness}`} />
+                    <MiniStat label="Mark" value={`$${selectedOption.fairValue.toFixed(2)}`} />
                     <MiniStat label="Intrinsic" value={`$${selectedOption.intrinsicValue.toFixed(2)}`} />
-                    <MiniStat label="Time Value" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} />
-                    <MiniStat label="Last Price" value={`$${selectedOption.price.toFixed(2)}`} />
-                    <MiniStat label="Edge" value={`${selectedOption.edge >= 0 ? '+' : ''}${selectedOption.edge.toFixed(1)}%`} />
-                    <MiniStat label="Win Prob" value={`${selectedOption.profitProbability.toFixed(1)}%`} />
+                    <MiniStat label="Extrinsic" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} />
+                    <MiniStat label="Last" value={`$${selectedOption.price.toFixed(2)}`} />
+                    <MiniStat label="POP" value={`${selectedOption.profitProbability.toFixed(1)}%`} />
                     <MiniStat label="DTE" value={`${selectedOption.dte || 30}d`} />
-                    <MiniStat label="IV/HV" value={`${(selectedOption.iv * 100).toFixed(1)}% / ${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}%`} />
-                    <MiniStat label="Quality" value={`${selectedOption.dataQuality}/100`} />
+                    <MiniStat label="IV/HV" value={`${(selectedOption.iv * 100).toFixed(1)} / ${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}`} />
+                    <MiniStat label="Vol" value={selectedOption.volume.toLocaleString()} />
+                    <MiniStat label="OI" value={selectedOption.openInterest.toLocaleString()} />
                   </div>
 
                   {/* Greeks */}
@@ -174,6 +174,11 @@ function ScannerRowDesktop({
   selectedAnalysis?: AnalystVerdict | null;
   rowRef?: React.Ref<HTMLTableRowElement | null>;
 }) {
+  // IBKR-style break-even
+  const breakEven = item.type === "call"
+    ? item.strike + item.price
+    : item.strike - item.price;
+
   return (
     <>
       <tr
@@ -202,17 +207,13 @@ function ScannerRowDesktop({
         <td className="px-3 py-3">
           <SignalBadge signal={analysis.action} />
         </td>
+        <td className="px-3 py-3 font-mono text-white">${item.fairValue.toFixed(2)}</td>
+        <td className="px-3 py-3 font-mono">{(item.iv * 100).toFixed(1)}%</td>
+        <td className="px-3 py-3 font-mono">{item.delta.toFixed(2)}</td>
+        <td className="px-3 py-3 font-mono">{item.profitProbability.toFixed(1)}%</td>
         <td className="px-3 py-3 font-semibold text-terminal-green">{item.opportunityScore}</td>
-        <td className={item.dataQuality >= 75 ? "px-3 py-3 text-terminal-green" : item.dataQuality >= 50 ? "px-3 py-3 text-terminal-amber" : "px-3 py-3 text-terminal-red"}>
-          {item.dataQuality}
-        </td>
-        <td className="px-3 py-3 text-terminal-cyan">+{item.upsidePotential.toFixed(1)}%</td>
-        <td className="px-3 py-3">{item.profitProbability.toFixed(1)}%</td>
-        <td className="px-3 py-3">
-          {(item.iv * 100).toFixed(1)}% / {(item.historical.realizedVol30 * 100).toFixed(1)}%
-        </td>
-        <td className={item.edge >= 0 ? "px-3 py-3 text-terminal-green" : "px-3 py-3 text-terminal-red"}>
-          {item.edge.toFixed(1)}%
+        <td className="px-3 py-3 font-mono text-terminal-muted">
+          {item.volume.toLocaleString()}/{item.openInterest.toLocaleString()}
         </td>
       </tr>
 
@@ -225,31 +226,33 @@ function ScannerRowDesktop({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-2xl font-semibold text-white">{selectedOption.symbol}</div>
-                  <div className="text-sm text-terminal-muted">{selectedOption.name}</div>
+                  <div className="text-sm text-terminal-muted">
+                    {selectedOption.type.toUpperCase()} · ${selectedOption.strike} · Exp {selectedOption.expirationDate}
+                  </div>
                 </div>
                 <SignalBadge signal={selectedAnalysis?.action || selectedOption.signal.signal} />
               </div>
 
-              {/* Stats grid */}
+              {/* Price & Value */}
               <div className="mt-3 grid grid-cols-3 gap-2 lg:grid-cols-4">
-                <MiniStat label="Strike" value={`$${selectedOption.strike}`} />
-                <MiniStat label="Stock Price" value={stockMoney.format(selectedOption.underlyingPrice)} />
-                <MiniStat label="Type" value={`${selectedOption.type.toUpperCase()} · ${selectedOption.moneyness}`} />
-                <MiniStat label="Fair Value" value={`$${selectedOption.fairValue.toFixed(2)}`} />
-                <MiniStat label="Intrinsic" value={`$${selectedOption.intrinsicValue.toFixed(2)}`} />
-                <MiniStat label="Time Value" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} />
-                <MiniStat label="Last Price" value={`$${selectedOption.price.toFixed(2)}`} />
-                <MiniStat label="Edge" value={`${selectedOption.edge >= 0 ? '+' : ''}${selectedOption.edge.toFixed(1)}%`} />
+                <MiniStat label="Undl" value={stockMoney.format(selectedOption.underlyingPrice)} />
+                <MiniStat label="Mark" value={`$${selectedOption.fairValue.toFixed(2)}`} />
+                <MiniStat label="Last" value={`$${selectedOption.price.toFixed(2)}`} />
+                <MiniStat label={selectedOption.moneyness} value={`${selectedOption.moneyness === "ITM" ? "In" : selectedOption.moneyness === "OTM" ? "Out" : "At"} of Money`} />
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2 lg:grid-cols-4">
-                <MiniStat label="Options Data" value={selectedOption.dataSource === "real-options" ? "Live" : "Synthetic"} />
-                <MiniStat label="History Data" value={formatSource(selectedOption.historySource)} />
-                <MiniStat label="Data Quality" value={`${selectedOption.dataQuality}/100`} />
-                <MiniStat label="AI Action" value={selectedAnalysis?.action || selectedOption.signal.signal} />
-                <MiniStat label="Risk" value={selectedAnalysis?.riskLabel || "Medium"} />
-                <MiniStat label="Win Prob" value={`${selectedOption.profitProbability.toFixed(1)}%`} />
-                <MiniStat label="Opportunity" value={`${selectedOption.opportunityScore}/100`} />
-                <MiniStat label="Move Potential" value={`+${selectedOption.upsidePotential.toFixed(1)}%`} />
+                <MiniStat label="Intrinsic" value={`$${selectedOption.intrinsicValue.toFixed(2)}`} />
+                <MiniStat label="Extrinsic" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} />
+                <MiniStat label="Break Even" value={`$${breakEven.toFixed(2)}`} />
+                <MiniStat label="POP" value={`${selectedOption.profitProbability.toFixed(1)}%`} />
+              </div>
+
+              {/* Vol & Data */}
+              <div className="mt-2 grid grid-cols-3 gap-2 lg:grid-cols-4">
+                <MiniStat label="IV" value={`${(selectedOption.iv * 100).toFixed(1)}%`} />
+                <MiniStat label="HV 30D" value={`${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}%`} />
+                <MiniStat label="IV/HV" value={`${(selectedOption.iv * 100).toFixed(1)} / ${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}`} />
+                <MiniStat label="DTE" value={`${selectedOption.dte || 30}d`} />
               </div>
 
               {/* Greeks row */}
