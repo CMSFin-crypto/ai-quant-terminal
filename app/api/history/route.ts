@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { fetchYahooHistory } from "@/lib/yahooFinance";
 
 function daysAgo(days: number) {
   const date = new Date();
@@ -53,14 +54,22 @@ async function fetchStooqHistory(symbol: string, days: number) {
   const to = new Date().toISOString().slice(0, 10).replaceAll("-", "");
   const stooqSymbol = normalizeStooqSymbol(symbol);
   const url = `https://stooq.com/q/d/l/?s=${stooqSymbol}&d1=${from}&d2=${to}&i=d`;
-  const res = await fetch(url, { next: { revalidate: 3600 } });
 
-  if (!res.ok) return [];
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      next: { revalidate: 3600 }
+    });
 
-  const csv = await res.text();
-  if (!csv || csv.includes("No data")) return [];
+    if (!res.ok) return [];
 
-  return parseStooqCsv(csv);
+    const csv = await res.text();
+    if (!csv || csv.includes("No data")) return [];
+
+    return parseStooqCsv(csv);
+  } catch {
+    return [];
+  }
 }
 
 async function fetchFinnhubHistory(symbol: string, days: number) {
@@ -70,28 +79,51 @@ async function fetchFinnhubHistory(symbol: string, days: number) {
   const to = Math.floor(Date.now() / 1000);
   const from = to - Math.max(days + 10, 120) * 86_400;
   const url = `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=D&from=${from}&to=${to}&token=${apiKey}`;
-  const res = await fetch(url, { next: { revalidate: 900 } });
 
-  if (!res.ok) return [];
-
-  return parseFinnhubCandles(await res.json());
+  try {
+    const res = await fetch(url, { next: { revalidate: 900 } });
+    if (!res.ok) return [];
+    return parseFinnhubCandles(await res.json());
+  } catch {
+    return [];
+  }
 }
 
 async function fetchFreeHistory(symbol: string, days: number) {
+  // Yahoo Finance — best free option, no API key needed
+  const yahooResult = await fetchYahooHistory(symbol, days);
+  if (yahooResult.results.length >= 90) {
+    return { results: yahooResult.results, source: "yahoo" };
+  }
+
+  // Stooq fallback
   const stooqResults = await fetchStooqHistory(symbol, days);
   if (stooqResults.length >= 90) {
     return { results: stooqResults, source: "stooq-free" };
   }
 
+  // Finnhub fallback
   const finnhubResults = await fetchFinnhubHistory(symbol, days);
   if (finnhubResults.length >= 90) {
     return { results: finnhubResults, source: "finnhub-free" };
   }
 
-  return {
-    results: stooqResults.length ? stooqResults : finnhubResults,
-    source: stooqResults.length ? "stooq-partial" : finnhubResults.length ? "finnhub-partial" : "simulated"
-  };
+  // Use best partial result available
+  const yahooCount = yahooResult.results.length;
+  const stooqCount = stooqResults.length;
+  const finnhubCount = finnhubResults.length;
+
+  if (yahooCount > 0) {
+    return { results: yahooResult.results, source: yahooCount >= 60 ? "yahoo-partial" : "yahoo-limited" };
+  }
+  if (stooqCount > 0) {
+    return { results: stooqResults, source: stooqCount >= 60 ? "stooq-partial" : "stooq-limited" };
+  }
+  if (finnhubCount > 0) {
+    return { results: finnhubResults, source: finnhubCount >= 60 ? "finnhub-partial" : "finnhub-limited" };
+  }
+
+  return { results: [], source: "simulated" };
 }
 
 export async function GET(req: Request) {
@@ -114,29 +146,32 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Missing symbol", results: [] }, { status: 400 });
   }
 
-  if (!API_KEY || API_KEY === "YOUR_POLYGON_KEY") {
-    const freeHistory = await fetchFreeHistory(symbol, days);
-    return NextResponse.json({
-      results: freeHistory.results,
-      source: freeHistory.source
-    });
+  // Polygon is the premium source — use it if available
+  if (API_KEY && API_KEY !== "YOUR_POLYGON_KEY") {
+    const from = daysAgo(Math.max(days + 10, 120));
+    const to = new Date().toISOString().slice(0, 10);
+    const url = `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${from}/${to}?adjusted=true&sort=asc&limit=50000&apiKey=${API_KEY}`;
+
+    try {
+      const res = await fetch(url, { next: { revalidate: 300 } });
+
+      if (res.ok) {
+        const data = await res.json();
+        const results = data?.results;
+
+        if (Array.isArray(results) && results.length >= 90) {
+          return NextResponse.json({ ...data, source: "polygon" });
+        }
+      }
+    } catch {
+      // Polygon failed, fall through to free sources
+    }
   }
 
-  const from = daysAgo(Math.max(days + 10, 120));
-  const to = new Date().toISOString().slice(0, 10);
-  const url = `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${from}/${to}?adjusted=true&sort=asc&limit=50000&apiKey=${API_KEY}`;
-
-  const res = await fetch(url, { next: { revalidate: 300 } });
-
-  if (!res.ok) {
-    const freeHistory = await fetchFreeHistory(symbol, days);
-    return NextResponse.json({
-      error: "Polygon history request failed",
-      results: freeHistory.results,
-      source: freeHistory.source
-    });
-  }
-
-  const data = await res.json();
-  return NextResponse.json({ ...data, source: "polygon" });
+  // Free data sources — Yahoo first, then Stooq, then Finnhub
+  const freeHistory = await fetchFreeHistory(symbol, days);
+  return NextResponse.json({
+    results: freeHistory.results,
+    source: freeHistory.source
+  });
 }

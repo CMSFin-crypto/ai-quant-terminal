@@ -19,10 +19,15 @@ export { money, stockMoney };
 export function formatSource(source: string): string {
   const labels: Record<string, string> = {
     polygon: "Polygon",
+    yahoo: "Yahoo Finance",
+    "yahoo-partial": "Yahoo (Partial)",
+    "yahoo-limited": "Yahoo (Limited)",
     "stooq-free": "Stooq",
     "stooq-partial": "Stooq Partial",
+    "stooq-limited": "Stooq (Limited)",
     "finnhub-free": "Finnhub",
     "finnhub-partial": "Finnhub Partial",
+    "finnhub-limited": "Finnhub (Limited)",
     simulated: "Simulated",
     unknown: "Unknown"
   };
