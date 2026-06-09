@@ -161,22 +161,24 @@ function ScannerRow({
               <div className="mt-3 grid grid-cols-4 gap-2 lg:grid-cols-8">
                 <MiniStat label="Strike" value={`$${selectedOption.strike}`} />
                 <MiniStat label="Stock Price" value={stockMoney.format(selectedOption.underlyingPrice)} />
-                <MiniStat label="Type" value={selectedOption.type.toUpperCase()} />
+                <MiniStat label="Type" value={`${selectedOption.type.toUpperCase()} · ${selectedOption.moneyness}`} />
+                <MiniStat label="Fair Value" value={`$${selectedOption.fairValue.toFixed(2)}`} />
+                <MiniStat label="Intrinsic" value={`$${selectedOption.intrinsicValue.toFixed(2)}`} />
+                <MiniStat label="Time Value" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} />
+                <MiniStat label="Last Price" value={`$${selectedOption.price.toFixed(2)}`} />
+                <MiniStat label="Edge" value={`${selectedOption.edge >= 0 ? '+' : ''}${selectedOption.edge.toFixed(1)}%`} />
+              </div>
+              <div className="mt-2 grid grid-cols-4 gap-2 lg:grid-cols-8">
                 <MiniStat label="Options Data" value={selectedOption.dataSource === "real-options" ? "Live" : "Synthetic"} />
                 <MiniStat label="History Data" value={formatSource(selectedOption.historySource)} />
                 <MiniStat label="Data Quality" value={`${selectedOption.dataQuality}/100`} />
                 <MiniStat label="AI Action" value={selectedAnalysis?.action || selectedOption.signal.signal} />
                 <MiniStat label="Risk" value={selectedAnalysis?.riskLabel || "Medium"} />
-              </div>
-              <div className="mt-2 grid grid-cols-4 gap-2 lg:grid-cols-8">
-                <MiniStat label="Fair Value" value={`$${selectedOption.fairValue.toFixed(2)}`} />
-                <MiniStat
-                  label={selectedOption.dataSource === "real-options" ? "Last Price" : "Model Price"}
-                  value={`$${selectedOption.price.toFixed(2)}`}
-                />
                 <MiniStat label="Win Prob" value={`${selectedOption.profitProbability.toFixed(1)}%`} />
                 <MiniStat label="Opportunity" value={`${selectedOption.opportunityScore}/100`} />
                 <MiniStat label="Move Potential" value={`+${selectedOption.upsidePotential.toFixed(1)}%`} />
+              </div>
+              <div className="mt-2 grid grid-cols-4 gap-2 lg:grid-cols-8">
                 <MiniStat label="MC Avg" value={`$${selectedOption.mc.avg.toFixed(2)}`} />
                 <MiniStat label="30D HV" value={`${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}%`} />
                 <MiniStat label="Max DD" value={`${(selectedOption.historical.maxDrawdown * 100).toFixed(1)}%`} />

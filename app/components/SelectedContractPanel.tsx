@@ -27,20 +27,17 @@ export function SelectedContractPanel({ selectedOption, selectedAnalysis }: Sele
         <div className="mt-4 grid grid-cols-2 gap-2">
           <MiniStat label="Strike" value={`$${selectedOption.strike}`} />
           <MiniStat label="Stock Price" value={stockMoney.format(selectedOption.underlyingPrice)} />
-          <MiniStat label="Type" value={selectedOption.type.toUpperCase()} />
+          <MiniStat label="Type" value={`${selectedOption.type.toUpperCase()} · ${selectedOption.moneyness}`} />
+          <MiniStat label="Fair Value" value={`$${selectedOption.fairValue.toFixed(2)}`} />
+          <MiniStat label="Intrinsic" value={`$${selectedOption.intrinsicValue.toFixed(2)}`} />
+          <MiniStat label="Time Value" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} />
+          <MiniStat label="Last Price" value={`$${selectedOption.price.toFixed(2)}`} />
+          <MiniStat label="Edge" value={`${selectedOption.edge >= 0 ? '+' : ''}${selectedOption.edge.toFixed(1)}%`} />
           <MiniStat label="Options Data" value={selectedOption.dataSource === "real-options" ? "Live" : "Synthetic"} />
           <MiniStat label="History Data" value={formatSource(selectedOption.historySource)} />
           <MiniStat label="Data Quality" value={`${selectedOption.dataQuality}/100`} />
           <MiniStat label="AI Action" value={selectedAnalysis?.action || selectedOption.signal.signal} />
           <MiniStat label="Risk" value={selectedAnalysis?.riskLabel || "Medium"} />
-          <MiniStat
-            label="Fair Value"
-            value={`$${selectedOption.fairValue.toFixed(2)}`}
-          />
-          <MiniStat
-            label="Last Price"
-            value={`$${selectedOption.price.toFixed(2)}`}
-          />
           <MiniStat
             label="DTE"
             value={`${selectedOption.dte || 30}d`}

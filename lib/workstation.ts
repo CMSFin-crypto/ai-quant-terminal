@@ -55,6 +55,9 @@ export type TerminalOption = {
   volume: number;
   openInterest: number;
   fairValue: number;
+  intrinsicValue: number;
+  extrinsicValue: number;
+  moneyness: "ITM" | "ATM" | "OTM";
   edge: number;
   opportunityScore: number;
   upsidePotential: number;
@@ -87,6 +90,31 @@ const sectorBias: Record<Stock["sector"], number> = {
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
+}
+
+/** Intrinsic value: what the option is worth if exercised right now. */
+function calcIntrinsicValue(spot: number, strike: number, type: "call" | "put"): number {
+  if (type === "call") return Math.max(spot - strike, 0);
+  return Math.max(strike - spot, 0);
+}
+
+/** Extrinsic (time) value: premium above intrinsic value. */
+function calcExtrinsicValue(optionPrice: number, intrinsicValue: number): number {
+  return Math.max(optionPrice - intrinsicValue, 0);
+}
+
+/** Moneyness classification: ITM = in-the-money, ATM = at-the-money, OTM = out-of-the-money */
+function calcMoneyness(spot: number, strike: number, type: "call" | "put"): "ITM" | "ATM" | "OTM" {
+  const ratio = spot / strike;
+  if (type === "call") {
+    if (ratio > 1.02) return "ITM";
+    if (ratio < 0.98) return "OTM";
+    return "ATM";
+  }
+  // put
+  if (ratio < 0.98) return "ITM";
+  if (ratio > 1.02) return "OTM";
+  return "ATM";
 }
 
 function calculateOpportunityScore({
@@ -225,6 +253,9 @@ function mockOption(
   const fairValue = blackScholes(spot, strike, 30 / 365, 0.05, iv, type);
   const pricingSkew = 0.94 + (seed % 13) / 100;
   const price = Number(Math.max(0.05, fairValue * pricingSkew).toFixed(2));
+  const intrinsicValue = calcIntrinsicValue(spot, strike, type);
+  const extrinsicValue = calcExtrinsicValue(fairValue, intrinsicValue);
+  const moneyness = calcMoneyness(spot, strike, type);
   const greeks = blackScholesGreeks(spot, strike, 30 / 365, 0.05, iv, type);
   const delta = Number(greeks.delta.toFixed(2));
   const gamma = Number(greeks.gamma.toFixed(3));
@@ -266,6 +297,9 @@ function mockOption(
     volume,
     openInterest,
     fairValue,
+    intrinsicValue,
+    extrinsicValue,
+    moneyness,
     edge,
     opportunityScore: Math.max(0, Math.round(opportunityScore - (100 - diagnostics.dataQuality) * 0.2)),
     upsidePotential,
@@ -344,6 +378,9 @@ export function normalizePolygonOption(
   // Edge = BS fair value vs market price. Should be near 0% now since we solved
   // IV from market price. Any residual edge is from Newton-Raphson precision.
   const edge = ((fairValue - price) / Math.max(price, 1)) * 100;
+  const intrinsicValue = calcIntrinsicValue(spot, strike, optionType);
+  const extrinsicValue = calcExtrinsicValue(fairValue, intrinsicValue);
+  const moneyness = calcMoneyness(spot, strike, optionType);
   const upsidePotential = directionalPotential(optionType, spot, mc);
   const profitProbability = directionalProbability(optionType, mc);
   const opportunityScore = calculateOpportunityScore({
@@ -374,6 +411,9 @@ export function normalizePolygonOption(
     volume,
     openInterest,
     fairValue,
+    intrinsicValue,
+    extrinsicValue,
+    moneyness,
     edge,
     opportunityScore: Math.max(0, Math.round(opportunityScore - (100 - diagnostics.dataQuality) * 0.2)),
     upsidePotential,
