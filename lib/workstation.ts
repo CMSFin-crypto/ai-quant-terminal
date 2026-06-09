@@ -313,7 +313,13 @@ export function normalizePolygonOption(
   const riskFreeRate = 0.043;
   const ivForPricing = iv > 0.01 ? iv : 0.2;
 
-  const fairValue = blackScholes(spot, strike, dteFraction, riskFreeRate, ivForPricing, optionType);
+  // For real options, the market price IS the fair value — it's determined by
+  // actual supply/demand. Black-Scholes with Yahoo IV can differ significantly
+  // from market price because Yahoo IV is smoothed / stale.
+  // We use BS only to compute a "model fair value" for edge analysis.
+  const modelFairValue = blackScholes(spot, strike, dteFraction, riskFreeRate, ivForPricing, optionType);
+  // Fair value shown to user = market price (the most accurate fair value)
+  const fairValue = price;
   const greeks = blackScholesGreeks(spot, strike, dteFraction, riskFreeRate, ivForPricing, optionType);
   const delta = Number(first?.greeks?.delta ?? greeks.delta);
   const gamma = Number(first?.greeks?.gamma ?? greeks.gamma);
@@ -328,7 +334,9 @@ export function normalizePolygonOption(
     score,
     confidence: score >= 82 ? "High" : score >= 68 ? "Medium" : score <= 35 ? "Defensive" : "Low"
   };
-  const edge = ((fairValue - price) / Math.max(price, 1)) * 100;
+  // Edge = model fair value vs market price. Positive = option is cheap vs model (buy).
+  // Since fairValue = price for real options, edge is based on modelFairValue.
+  const edge = ((modelFairValue - price) / Math.max(price, 1)) * 100;
   const upsidePotential = directionalPotential(optionType, spot, mc);
   const profitProbability = directionalProbability(optionType, mc);
   const opportunityScore = calculateOpportunityScore({
