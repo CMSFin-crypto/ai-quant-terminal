@@ -275,30 +275,41 @@ function pickClosestExpiry(
 }
 
 // ─── Crumb Management ────────────────────────────────────────────────────────
-// Yahoo Finance v7/v10 API now requires a "crumb" for authentication.
-// We fetch it once and cache it for CRUMB_TTL_MS.
+// Yahoo Finance v7 API requires a "crumb" + cookies for authentication.
+// Node.js fetch does NOT auto-persist cookies between requests,
+// so we manually capture Set-Cookie from fc.yahoo.com and pass it along.
 
 let cachedCrumb: string | null = null;
+let cachedCookies: string | null = null;
 let crumbExpiresAt = 0;
-const CRUMB_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const CRUMB_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours (shorter TTL for safety)
 
-async function getYahooCrumb(): Promise<string | null> {
-  // Return cached crumb if still valid
-  if (cachedCrumb && Date.now() < crumbExpiresAt) return cachedCrumb;
+async function getYahooCrumb(): Promise<{ crumb: string; cookies: string } | null> {
+  // Return cached crumb+cookies if still valid
+  if (cachedCrumb && cachedCookies && Date.now() < crumbExpiresAt) {
+    return { crumb: cachedCrumb, cookies: cachedCookies };
+  }
 
   try {
-    // Step 1: Visit fc.yahoo.com to get session cookies
-    // The Node.js fetch runtime shares cookies within the same process
-    await fetch("https://fc.yahoo.com/", {
+    // Step 1: Visit fc.yahoo.com to get session cookies (A1/A3)
+    const fcRes = await fetch("https://fc.yahoo.com/", {
       headers: { "User-Agent": UA },
       next: { revalidate: 0 },
+      redirect: "manual",
     });
+
+    // Extract Set-Cookie headers and build a cookie string
+    const setCookieHeaders = fcRes.headers.getSetCookie?.() || [];
+    const cookieParts = setCookieHeaders.map((c: string) => c.split(";")[0]);
+    const cookies = cookieParts.join("; ");
+
+    if (!cookies) return null;
 
     // Step 2: Get the crumb using the session cookies
     const crumbRes = await fetch(
       "https://query1.finance.yahoo.com/v1/test/getcrumb",
       {
-        headers: { "User-Agent": UA },
+        headers: { "User-Agent": UA, Cookie: cookies },
         next: { revalidate: 0 },
       }
     );
@@ -311,10 +322,12 @@ async function getYahooCrumb(): Promise<string | null> {
       return null;
     }
 
+    // Cache both crumb and cookies
     cachedCrumb = crumb;
+    cachedCookies = cookies;
     crumbExpiresAt = Date.now() + CRUMB_TTL_MS;
 
-    return crumb;
+    return { crumb, cookies };
   } catch {
     return null;
   }
@@ -328,21 +341,23 @@ async function getYahooCrumb(): Promise<string | null> {
  * Returns contracts normalized into PolygonOptionContract[] format.
  */
 export async function fetchYahooOptions(symbol: string): Promise<YahooOptionsResult> {
-  // Step 0: Get authentication crumb
-  const crumb = await getYahooCrumb();
-  if (!crumb) return emptyOptions("yahoo-options-no-crumb");
+  // Step 0: Get authentication crumb + cookies
+  const auth = await getYahooCrumb();
+  if (!auth) return emptyOptions("yahoo-options-no-crumb");
 
+  const { crumb, cookies } = auth;
   const baseOptionsUrl = `https://query1.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}`;
+  const baseHeaders = { "User-Agent": UA, Cookie: cookies };
 
   try {
-    // Step 1: Fetch the default expiry (nearest) with crumb
+    // Step 1: Fetch the default expiry (nearest) with crumb + cookies
     const controller1 = new AbortController();
     const timer1 = setTimeout(() => controller1.abort(), OPTIONS_FETCH_TIMEOUT_MS);
 
     const res1 = await fetch(
       `${baseOptionsUrl}?crumb=${encodeURIComponent(crumb)}`,
       {
-        headers: { "User-Agent": UA },
+        headers: baseHeaders,
         next: { revalidate: 60 },
         signal: controller1.signal,
       }
@@ -351,8 +366,9 @@ export async function fetchYahooOptions(symbol: string): Promise<YahooOptionsRes
     clearTimeout(timer1);
 
     if (!res1.ok) {
-      // Crumb might have expired — clear cache for next attempt
+      // Crumb/cookies might have expired — clear cache for next attempt
       cachedCrumb = null;
+      cachedCookies = null;
       return emptyOptions("yahoo-options-error");
     }
 
@@ -361,6 +377,7 @@ export async function fetchYahooOptions(symbol: string): Promise<YahooOptionsRes
     // Check for crumb/auth error in the response body
     if (data1?.finance?.error) {
       cachedCrumb = null;
+      cachedCookies = null;
       return emptyOptions("yahoo-options-auth-failed");
     }
 
@@ -386,7 +403,7 @@ export async function fetchYahooOptions(symbol: string): Promise<YahooOptionsRes
       const res2 = await fetch(
         `${baseOptionsUrl}?date=${targetExpiry}&crumb=${encodeURIComponent(crumb)}`,
         {
-          headers: { "User-Agent": UA },
+          headers: baseHeaders,
           next: { revalidate: 60 },
           signal: controller2.signal,
         }
