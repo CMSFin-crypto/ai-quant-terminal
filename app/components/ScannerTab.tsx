@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Activity, ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Activity, ChevronDown, ChevronUp, Info } from "lucide-react";
 import type { TerminalOption } from "@/lib/workstation";
 import type { AnalystVerdict } from "@/lib/aiHistoricalAnalyst";
 import { analyzeHistorically } from "@/lib/aiHistoricalAnalyst";
 import { stockMoney, formatSource } from "@/lib/utils";
+import { getMetricDef, type MetricDef } from "@/lib/metricDefs";
 import { Panel } from "./Panel";
 import { MiniStat } from "./MiniStat";
 import { SignalBadge } from "./SignalBadge";
+
+const HEADERS = ["Symbol", "Undl", "Right", "Mark", "IV", "Delta", "POP", "Score", "Vol/OI"];
 
 interface ScannerTabProps {
   filteredRankedData: TerminalOption[];
@@ -26,12 +29,23 @@ export function ScannerTab({
   selectedAnalysis
 }: ScannerTabProps) {
   const selectedRef = useRef<HTMLDivElement>(null);
+  const [activeHeader, setActiveHeader] = useState<string | null>(null);
 
   useEffect(() => {
     if (selectedRef.current) {
       selectedRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [selected]);
+
+  // Close header info on click outside
+  useEffect(() => {
+    if (!activeHeader) return;
+    function handleClick() { setActiveHeader(null); }
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, [activeHeader]);
+
+  const activeDef = activeHeader ? getMetricDef(activeHeader) : null;
 
   return (
     <Panel
@@ -44,15 +58,36 @@ export function ScannerTab({
         <table className="w-full min-w-[780px] border-collapse text-sm">
           <thead className="bg-black/30 text-left text-xs uppercase tracking-[0.16em] text-terminal-muted">
             <tr>
-              {["Symbol", "Undl", "Right", "Mark", "IV", "Delta", "POP", "Score", "Vol/OI"].map(
-                (head) => (
+              {HEADERS.map((head) => {
+                const def = getMetricDef(head);
+                return (
                   <th key={head} className="border-b border-terminal-edge px-3 py-3">
-                    {head}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setActiveHeader(activeHeader === head ? null : head); }}
+                      className={`flex items-center gap-1 transition ${
+                        def ? "cursor-pointer hover:text-terminal-cyan" : ""
+                      } ${activeHeader === head ? "text-terminal-cyan" : ""}`}
+                    >
+                      {head}
+                      {def && <Info size={10} className="opacity-40" />}
+                    </button>
                   </th>
-                )
-              )}
+                );
+              })}
             </tr>
           </thead>
+
+          {/* Header info row */}
+          {activeDef && (
+            <thead>
+              <tr>
+                <td colSpan={9} className="p-0">
+                  <HeaderInfoBar def={activeDef} term={activeHeader!} onClose={() => setActiveHeader(null)} />
+                </td>
+              </tr>
+            </thead>
+          )}
+
           <tbody>
             {filteredRankedData.map((item) => {
               const isSelected = selected === item.symbol;
@@ -123,15 +158,8 @@ export function ScannerTab({
                     <MiniStat label="POP" value={`${selectedOption.profitProbability.toFixed(1)}%`} />
                     <MiniStat label="DTE" value={`${selectedOption.dte || 30}d`} />
                     <MiniStat label="IV/HV" value={`${(selectedOption.iv * 100).toFixed(1)} / ${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}`} />
-                    <MiniStat label="Vol" value={selectedOption.volume.toLocaleString()} />
-                    <MiniStat label="OI" value={selectedOption.openInterest.toLocaleString()} />
-                  </div>
-
-                  {/* Greeks */}
-                  <div className="mt-2 grid grid-cols-3 gap-1.5">
+                    <MiniStat label="Vol/OI" value={`${selectedOption.volume.toLocaleString()}/${selectedOption.openInterest.toLocaleString()}`} />
                     <MiniStat label="Delta" value={selectedOption.delta.toFixed(2)} />
-                    <MiniStat label="Gamma" value={selectedOption.gamma.toFixed(3)} />
-                    <MiniStat label="Theta" value={selectedOption.theta.toFixed(3)} />
                   </div>
 
                   {/* AI note */}
@@ -155,6 +183,38 @@ export function ScannerTab({
   );
 }
 
+// ─── Header info bar (shown when clicking a column header) ──────────────────
+
+function HeaderInfoBar({ def, term, onClose }: { def: MetricDef; term: string; onClose: () => void }) {
+  return (
+    <div className="border-b border-terminal-cyan/30 bg-terminal-cyan/[0.06] px-4 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-terminal-cyan">{def.term}</span>
+            <span className="text-xs text-terminal-muted">{def.full}</span>
+          </div>
+          <div className="mt-2 space-y-1.5 text-xs leading-4">
+            <div>
+              <span className="text-terminal-green font-semibold">Çfarë është: </span>
+              <span className="text-terminal-text/90">{def.desc}</span>
+            </div>
+            <div>
+              <span className="text-terminal-amber font-semibold">Si përdoret: </span>
+              <span className="text-terminal-text/90">{def.use}</span>
+            </div>
+            <div>
+              <span className="text-terminal-cyan font-semibold">Tip: </span>
+              <span className="text-terminal-text/90">{def.tip}</span>
+            </div>
+          </div>
+        </div>
+        <button onClick={onClose} className="shrink-0 text-terminal-muted hover:text-white text-xs mt-0.5">✕</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Desktop row with inline expansion ────────────────────────────────────
 
 function ScannerRowDesktop({
@@ -174,7 +234,6 @@ function ScannerRowDesktop({
   selectedAnalysis?: AnalystVerdict | null;
   rowRef?: React.Ref<HTMLTableRowElement | null>;
 }) {
-  // IBKR-style break-even
   const breakEven = item.type === "call"
     ? item.strike + item.price
     : item.strike - item.price;
