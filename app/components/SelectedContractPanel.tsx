@@ -28,7 +28,7 @@ export function SelectedContractPanel({ selectedOption, selectedAnalysis }: Sele
           <MiniStat label="Strike" value={`$${selectedOption.strike}`} />
           <MiniStat label="Stock Price" value={stockMoney.format(selectedOption.underlyingPrice)} />
           <MiniStat label="Type" value={selectedOption.type.toUpperCase()} />
-          <MiniStat label="Options Data" value={selectedOption.dataSource === "real-options" ? "Real" : "Synthetic"} />
+          <MiniStat label="Options Data" value={selectedOption.dataSource === "real-options" ? "Live" : "Synthetic"} />
           <MiniStat label="History Data" value={formatSource(selectedOption.historySource)} />
           <MiniStat label="Data Quality" value={`${selectedOption.dataQuality}/100`} />
           <MiniStat label="AI Action" value={selectedAnalysis?.action || selectedOption.signal.signal} />

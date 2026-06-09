@@ -164,12 +164,13 @@ export default function Page() {
         const hasRealHistory = Array.isArray(historyJson?.results) && historyJson.results.length >= 90;
         const bars = hasRealHistory ? historyJson.results : generateMockHistory(stock.symbol);
         const historical = calculateHistoricalMetrics(bars);
-        const quotePrice = Number(quoteJson?.price || 0) || undefined;
+        const quotePrice = Number(quoteJson?.price || optionsJson?.underlyingPrice || 0) || undefined;
+        const optionsSource = optionsJson?.source || undefined;
         const contract = pickOptionContract(optionsJson?.results, historical, quotePrice);
         const finalHistorySource = hasRealHistory ? historySource : "simulated";
 
         return contract
-          ? normalizePolygonOption(stock, contract, historical, quotePrice, finalHistorySource)
+          ? normalizePolygonOption(stock, contract, historical, quotePrice, finalHistorySource, optionsSource)
           : buildSyntheticOption(stock, historical, quotePrice, finalHistorySource);
       } catch {
         // If individual stock fetch fails, use synthetic data

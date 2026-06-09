@@ -174,13 +174,23 @@ function targetStrike(spot: number, type: "call" | "put", seed: number) {
   return Math.round((spot * targetMoneyness) / strikeStep) * strikeStep;
 }
 
-function dataDiagnostics(historySource: string, dataSource: TerminalOption["dataSource"]) {
+function dataDiagnostics(historySource: string, dataSource: TerminalOption["dataSource"], optionsSource?: string) {
   const warnings: string[] = [];
   let dataQuality = 100;
 
   if (dataSource === "synthetic-options") {
     dataQuality -= 25;
     warnings.push("Options chain is synthetic because no live options feed is connected.");
+  } else if (dataSource === "real-options") {
+    // Real options data from a live feed — small quality note if from free source
+    if (optionsSource?.includes("yahoo")) {
+      dataQuality -= 5;
+      warnings.push("Options data from Yahoo Finance (free source). Greeks computed via Black-Scholes model.");
+    } else if (optionsSource?.includes("finnhub")) {
+      dataQuality -= 8;
+      warnings.push("Options data from Finnhub (free source). Greeks computed via Black-Scholes model.");
+    }
+    // Polygon real-time data gets full quality — no warning
   }
 
   if (historySource === "simulated") {
@@ -278,7 +288,8 @@ export function normalizePolygonOption(
   first: PolygonOptionContract,
   historical = calculateHistoricalMetrics(generateMockHistory(stock.symbol)),
   quotePrice?: number,
-  historySource = "unknown"
+  historySource = "unknown",
+  optionsSource?: string
 ): TerminalOption {
   const fallback = mockOption(stock, historical, quotePrice, historySource);
   const optionType = first?.details?.contract_type === "put" ? "put" : "call";
@@ -317,7 +328,7 @@ export function normalizePolygonOption(
     upsidePotential
   });
   const dataSource: TerminalOption["dataSource"] = first ? "real-options" : "synthetic-options";
-  const diagnostics = dataDiagnostics(historySource, dataSource);
+  const diagnostics = dataDiagnostics(historySource, dataSource, optionsSource);
 
   return {
     ...fallback,
