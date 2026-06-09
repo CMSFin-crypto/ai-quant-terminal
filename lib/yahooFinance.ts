@@ -1,7 +1,11 @@
 /**
  * Yahoo Finance free data source — no API key required.
  * Uses the v8 chart endpoint which returns both historical candles and current quote.
+ *
+ * All fetch calls include an AbortController timeout to prevent hanging.
  */
+
+const YAHUA_FETCH_TIMEOUT_MS = 8_000;
 
 export type YahooBar = {
   t: number;
@@ -28,6 +32,14 @@ export type YahooHistoryResult = {
   source: string;
 };
 
+const emptyQuote = (source: string): YahooQuoteResult => ({
+  price: null, change: 0, changePercent: 0, high: 0, low: 0, open: 0, previousClose: 0, source
+});
+
+const emptyHistory = (source: string): YahooHistoryResult => ({
+  results: [], source
+});
+
 /**
  * Fetch current quote from Yahoo Finance.
  * Uses the v8 chart endpoint with a 5-day range to ensure we get the latest price.
@@ -36,34 +48,42 @@ export async function fetchYahooQuote(symbol: string): Promise<YahooQuoteResult>
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`;
 
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), YAHUA_FETCH_TIMEOUT_MS);
+
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
-      next: { revalidate: 30 }
+      next: { revalidate: 30 },
+      signal: controller.signal
     });
 
+    clearTimeout(timer);
+
     if (!res.ok) {
-      return { price: null, change: 0, changePercent: 0, high: 0, low: 0, open: 0, previousClose: 0, source: "yahoo-error" };
+      return emptyQuote("yahoo-error");
     }
 
     const data = await res.json();
     const meta = data?.chart?.result?.[0]?.meta;
 
     if (!meta?.regularMarketPrice) {
-      return { price: null, change: 0, changePercent: 0, high: 0, low: 0, open: 0, previousClose: 0, source: "yahoo-no-data" };
+      return emptyQuote("yahoo-no-data");
     }
+
+    const prevClose = meta.chartPreviousClose || meta.previousClose || meta.regularMarketPrice;
 
     return {
       price: Number(meta.regularMarketPrice) || null,
-      change: Number(meta.regularMarketPrice - (meta.chartPreviousClose || meta.previousClose || 0)),
-      changePercent: Number(((meta.regularMarketPrice - (meta.chartPreviousClose || meta.previousClose || meta.regularMarketPrice)) / (meta.chartPreviousClose || meta.previousClose || meta.regularMarketPrice) * 100).toFixed(2)),
+      change: Number(meta.regularMarketPrice - prevClose),
+      changePercent: Number(((meta.regularMarketPrice - prevClose) / prevClose * 100).toFixed(2)),
       high: Number(meta.regularMarketDayHigh || 0),
       low: Number(meta.regularMarketDayLow || 0),
       open: Number(meta.regularMarketOpen || 0),
-      previousClose: Number(meta.chartPreviousClose || meta.previousClose || 0),
+      previousClose: Number(prevClose),
       source: "yahoo"
     };
   } catch {
-    return { price: null, change: 0, changePercent: 0, high: 0, low: 0, open: 0, previousClose: 0, source: "yahoo-error" };
+    return emptyQuote("yahoo-error");
   }
 }
 
@@ -76,27 +96,33 @@ export async function fetchYahooHistory(symbol: string, days = 365): Promise<Yah
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
 
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), YAHUA_FETCH_TIMEOUT_MS);
+
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
-      next: { revalidate: 300 }
+      next: { revalidate: 300 },
+      signal: controller.signal
     });
 
+    clearTimeout(timer);
+
     if (!res.ok) {
-      return { results: [], source: "yahoo-error" };
+      return emptyHistory("yahoo-error");
     }
 
     const data = await res.json();
     const result = data?.chart?.result?.[0];
 
     if (!result) {
-      return { results: [], source: "yahoo-no-data" };
+      return emptyHistory("yahoo-no-data");
     }
 
     const timestamps: number[] = result.timestamp || [];
     const quotes = result.indicators?.quote?.[0];
 
     if (!quotes) {
-      return { results: [], source: "yahoo-no-quotes" };
+      return emptyHistory("yahoo-no-quotes");
     }
 
     const closes: number[] = quotes.close || [];
@@ -126,6 +152,6 @@ export async function fetchYahooHistory(symbol: string, days = 365): Promise<Yah
       source: "yahoo"
     };
   } catch {
-    return { results: [], source: "yahoo-error" };
+    return emptyHistory("yahoo-error");
   }
 }
