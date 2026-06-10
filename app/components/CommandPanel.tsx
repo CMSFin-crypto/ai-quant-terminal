@@ -3,7 +3,7 @@
 import { Bot, RefreshCw } from "lucide-react";
 import { Panel } from "./Panel";
 
-const tabs = ["Scanner", "AI Analyst", "Macro", "Vol Surface", "Flow", "Strategy", "Risk"] as const;
+const tabs = ["Scanner", "AI Analyst", "Monte Carlo", "Alerts", "Macro", "Vol Surface", "Flow", "Strategy", "Risk"] as const;
 type Tab = (typeof tabs)[number];
 
 interface CommandPanelProps {

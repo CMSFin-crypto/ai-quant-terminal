@@ -33,6 +33,8 @@ import { VolSurfaceTab } from "./components/VolSurfaceTab";
 import { FlowTab } from "./components/FlowTab";
 import { StrategyTab } from "./components/StrategyTab";
 import { RiskTab } from "./components/RiskTab";
+import { MonteCarloTab } from "./components/MonteCarloTab";
+import { AlertsTab } from "./components/AlertsTab";
 import { SelectedContractPanel } from "./components/SelectedContractPanel";
 import { TopSignalsPanel } from "./components/TopSignalsPanel";
 import { SectorHeatmapPanel } from "./components/SectorHeatmapPanel";
@@ -400,6 +402,14 @@ export default function Page() {
                     selectedOption={selectedOption}
                     selectedAnalysis={selectedAnalysis}
                   />
+                )}
+
+                {activeTab === "Monte Carlo" && selectedOption && (
+                  <MonteCarloTab selectedOption={selectedOption} />
+                )}
+
+                {activeTab === "Alerts" && (
+                  <AlertsTab data={data} onSelect={setSelected} />
                 )}
 
                 {activeTab === "Macro" && selectedOption && selectedMacro && (
