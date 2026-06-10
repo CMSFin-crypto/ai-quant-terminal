@@ -141,10 +141,24 @@ export const METRICS: Record<string, MetricDef> = {
     use: "Score e lartë (>75) = mundësi e fortë me konfirmime të shumta. Score mesatare (50-75) = mundësi mesatare. Score e ulët (<50) = shmangni ose kini kujdes.",
     tip: "Score kombinon shumë faktorë. Një Score e lartë me Data Quality të ulët nuk është e besueshme. Kontrolloni gjithmonë Feed dhe Hist."
   },
+  Vol: {
+    term: "Vol",
+    full: "Volume (Daily Trading Volume)",
+    desc: "Numri i kontratave të opsionit të tregtuara gjatë ditës aktuale tregtare. Volumi tregon aktivitetin dhe interesin e tregtuesve për këtë kontratë specifike.",
+    use: "Volum i lartë = likuiditet i mirë, spread-i Bid-Ask i ngushtë, ekzekutim më i lehtë. Volum i ulët = likuiditet i dobët, mund të keni vështirësi për të hyrë apo dalë nga pozicioni.",
+    tip: "Volumi duhet krahasuar me OI-në. Nëse Vol > OI, atëherë ka më shumë tregtim sot se çfarë pozicionesh ekzistojnë — kjo është e pazakontë dhe tregon aktivitet të ri të madh."
+  },
+  OI: {
+    term: "OI",
+    full: "Open Interest",
+    desc: "Numri total i kontratave aktive (të pahapura) për këtë opsion. OI rritet kur blerësi dhe shitësi hapin pozicione të reja. OI bie kur të dyja palët mbyllin pozicionet e tyre.",
+    use: "OI e lartë = interes i madh nga tregu, likuiditet i mirë. OI në rritje bashkë me rritje çmimi = trend i konfirmuar. OI në rritje me çmim në rënie = trend bearish i konfirmuar.",
+    tip: "OI nuk është e njëjtë me Volumin. OI tregon pozicionet e hapura totale, ndërsa Vol tregon tregtimin e sotëm. OI nuk ndryshon me çdo tregti — vetëm kur hapen apo mbyllen pozicione të reja."
+  },
   "Vol/OI": {
     term: "Vol/OI",
-    full: "Volume / Open Interest",
-    desc: "Volume = numri i kontratave të tregtuara sot. OI (Open Interest) = numri total i kontratave aktive. Raporti Vol/OI tregon aktivitetin e sotëm krahasuar me pozicionet ekzistuese.",
+    full: "Volume / Open Interest Ratio",
+    desc: "Raporti midis Volumit ditor dhe Open Interest. Tregon se sa aktiv ka qenë tregtimi sot krahasuar me pozicionet ekzistuese. P.sh. Vol/OI = 0.5 do të thotë se gjysma e pozicioneve ekzistuese janë tregtuar sot.",
     use: "Vol/OI > 1 → aktivitet i pazakontë, zakonisht = interes i ri i madh. OI në rritje = pozicione të reja po hapen. OI në rënie = pozicione po mbyllen.",
     tip: "Volum i lartë me OI të ulët = tregtim i ri, mund të jetë spekulativ. OI e lartë me Volum të ulët = pozicione ekzistuese por pa aktivitet të ri."
   },
