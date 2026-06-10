@@ -145,7 +145,7 @@ export function ScannerTab({
                     <MiniStat label="Delta" value={selectedOption.delta.toFixed(2)} />
                   </div>
 
-                  {/* ── SQARIMI: Çka me bo, Pse, Si, Rreziku ── */}
+                  {/* ── SQARIMI: Çfarë të bësh, Pse, Si, Rreziku ── */}
                   {selectedAnalysis && (
                     <AlbanianRecommendationCard analysis={selectedAnalysis} symbol={selectedOption.symbol} compact />
                   )}
@@ -272,7 +272,7 @@ function ScannerRowDesktop({
                 <MiniStat label="Rho" value={selectedOption.rho.toFixed(4)} />
               </div>
 
-              {/* ── SQARIMI: Çka me bo, Pse, Si, Rreziku ── */}
+              {/* ── SQARIMI: Çfarë të bësh, Pse, Si, Rreziku ── */}
               {selectedAnalysis && (
                 <AlbanianRecommendationCard analysis={selectedAnalysis} symbol={selectedOption.symbol} />
               )}
@@ -292,7 +292,7 @@ function ScannerRowDesktop({
 }
 
 // ─── Albanian Recommendation Card ──────────────────────────────────────────
-// Tregon: Çfarë të bësh, Pse, Si ta bësh, dhe Rrezikun — gjithçka në shqipen standarde
+// Tregon: Çfarë të bësh, Pse, Si ta bësh, dhe Rrezikun — gjithçka në shqipen standarde letrare
 
 function AlbanianRecommendationCard({
   analysis,
@@ -349,7 +349,7 @@ function AlbanianRecommendationCard({
 
   return (
     <div className="mt-4 space-y-2">
-      {/* ── ÇKA ME BO ── */}
+      {/* ── ÇFARË TË BËSH ── */}
       <div className={`rounded border p-3.5 ${actionBg}`}>
         <div className="flex items-center gap-2.5 mb-2">
           {actionIcon}

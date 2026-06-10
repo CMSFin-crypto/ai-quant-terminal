@@ -175,6 +175,13 @@ export const METRICS: Record<string, MetricDef> = {
     desc: "Vlerësim 0-100 i cilësisë së të dhënave. -25 pikë për opsione sintetike, -40 pikë për histori të simuluar. 100/100 = të dhëna komplet live.",
     use: "Quality > 75 = e besueshme. 50-75 = mesatare, verifikoni manualisht. < 50 = përdorni vetëm si referencë, jo për tregtim.",
     tip: "Quality varet nga Feed + Hist. Nëse keni Live Feed + Yahoo History = 100. Nëse keni Synthetic + Simulated = 35."
+  },
+  Strike: {
+    term: "Strike",
+    full: "Strike Price (Exercise Price)",
+    desc: "Çmimi i paracaktuar në të cilin mund të ushtrohet opsioni. Për Call, ju jep të drejtën të blini aksionin me çmimin Strike. Për Put, ju jep të drejtën të shisni aksionin me çmimin Strike.",
+    use: "Krahasoni Strike me çmimin aktual (Undl) për të përcaktuar moneyness: nëse Undl > Strike për Call → ITM; nëse Undl < Strike për Call → OTM. Strike afër Undl = ATM opsion.",
+    tip: "Zgjidhni Strike ATM (afër çmimit aktual) për ekuilibër midis kostos dhe probabilitetit. Strike OTM janë më të lira por me probabilitet më të ulët. Strike ITM janë më të shtrenjta por me probabilitet më të lartë."
   }
 };
 

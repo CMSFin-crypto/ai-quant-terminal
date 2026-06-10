@@ -80,10 +80,10 @@ export function SelectedContractPanel({ selectedOption, selectedAnalysis }: Sele
           <MiniStat label="Quality" value={`${selectedOption.dataQuality}/100`} />
         </div>
 
-        {/* ── SQARIMI: Çka me bo, Pse, Si, Rreziku ── */}
+        {/* ── SQARIMI: Çfarë të bësh, Pse, Si, Rreziku ── */}
         {selectedAnalysis && (
           <div className="mt-3 space-y-2">
-            {/* ÇKA ME BO */}
+            {/* ÇFARË TË BËSH */}
             <SidebarRecommendation analysis={selectedAnalysis} />
           </div>
         )}
@@ -131,7 +131,7 @@ function SidebarRecommendation({ analysis }: { analysis: AnalystVerdict }) {
 
   return (
     <>
-      {/* ÇKA ME BO */}
+      {/* ÇFARË TË BËSH */}
       <div className={`rounded border p-2.5 ${actionBg}`}>
         <div className="flex items-center gap-2 mb-1.5">
           {actionIcon}
@@ -152,7 +152,7 @@ function SidebarRecommendation({ analysis }: { analysis: AnalystVerdict }) {
         <p className="text-xs leading-5 text-terminal-text/85">{analysis.whyAl}</p>
       </div>
 
-      {/* SI TA BOSH */}
+      {/* SI TA BËSH */}
       <div className="rounded border border-terminal-green/30 bg-terminal-green/[0.05] p-2.5">
         <div className="flex items-center gap-2 mb-1.5">
           <Crosshair size={14} className="text-terminal-green" />

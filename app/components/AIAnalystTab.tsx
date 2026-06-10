@@ -38,9 +38,9 @@ export function AIAnalystTab({ selectedOption, selectedAnalysis }: AIAnalystTabP
         <AnalystList title="Checklist" items={selectedAnalysis.checklist} tone="cyan" />
       </div>
 
-      {/* ── Sqarimi në shqip: Çka me bo, Pse, Si, Rreziku ── */}
+      {/* ── Sqarimi në shqipen standarde letrare: Çfarë të bësh, Pse, Si, Rreziku ── */}
       <div className="mt-4 space-y-2">
-        {/* ÇKA ME BO */}
+        {/* ÇFARË TË BËSH */}
         <div className={`rounded border p-3.5 ${
           selectedAnalysis.action === "AVOID" ? "border-red-500/50 bg-red-500/10" :
           selectedAnalysis.action.startsWith("BUY") ? "border-terminal-green/50 bg-terminal-green/10" :
@@ -72,7 +72,7 @@ export function AIAnalystTab({ selectedOption, selectedAnalysis }: AIAnalystTabP
           <p className="text-xs sm:text-sm leading-6 text-terminal-text/90">{selectedAnalysis.whyAl}</p>
         </div>
 
-        {/* SI TA BOSH */}
+        {/* SI TA BËSH */}
         <div className="rounded border border-terminal-green/30 bg-terminal-green/[0.05] p-3.5">
           <div className="flex items-center gap-2 mb-2">
             <Crosshair size={16} className="text-terminal-green" />
