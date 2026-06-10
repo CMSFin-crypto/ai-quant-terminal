@@ -34,6 +34,11 @@ import { FlowTab } from "./components/FlowTab";
 import { StrategyTab } from "./components/StrategyTab";
 import { RiskTab } from "./components/RiskTab";
 import { MonteCarloTab } from "./components/MonteCarloTab";
+import { IVHVChartTab } from "./components/IVHVChartTab";
+import { POPCalculatorTab } from "./components/POPCalculatorTab";
+import { MaxProfitLossTab } from "./components/MaxProfitLossTab";
+import { VolSkewTab } from "./components/VolSkewTab";
+import { BacktestTab } from "./components/BacktestTab";
 import { AlertsTab } from "./components/AlertsTab";
 import { SelectedContractPanel } from "./components/SelectedContractPanel";
 import { TopSignalsPanel } from "./components/TopSignalsPanel";
@@ -402,6 +407,26 @@ export default function Page() {
                     selectedOption={selectedOption}
                     selectedAnalysis={selectedAnalysis}
                   />
+                )}
+
+                {activeTab === "IV/HV" && selectedOption && (
+                  <IVHVChartTab selectedOption={selectedOption} />
+                )}
+
+                {activeTab === "POP Calc" && selectedOption && (
+                  <POPCalculatorTab selectedOption={selectedOption} />
+                )}
+
+                {activeTab === "P&L" && selectedOption && (
+                  <MaxProfitLossTab selectedOption={selectedOption} />
+                )}
+
+                {activeTab === "Vol Skew" && selectedOption && (
+                  <VolSkewTab selectedOption={selectedOption} />
+                )}
+
+                {activeTab === "Backtest" && selectedOption && (
+                  <BacktestTab selectedOption={selectedOption} />
                 )}
 
                 {activeTab === "Monte Carlo" && selectedOption && (
