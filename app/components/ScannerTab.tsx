@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Activity, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Activity, AlertTriangle, ChevronDown, ChevronUp, Crosshair, Info, Lightbulb, Shield } from "lucide-react";
 import type { TerminalOption } from "@/lib/workstation";
 import type { AnalystVerdict } from "@/lib/aiHistoricalAnalyst";
 import { analyzeHistorically } from "@/lib/aiHistoricalAnalyst";
-import { stockMoney, formatSource } from "@/lib/utils";
-import { getMetricDef, type MetricDef } from "@/lib/metricDefs";
+import { stockMoney } from "@/lib/utils";
+import { getMetricDef } from "@/lib/metricDefs";
 import { Panel } from "./Panel";
 import { MiniStat } from "./MiniStat";
 import { SignalBadge } from "./SignalBadge";
+import { HeaderTooltip } from "./InfoTooltip";
 
 const HEADERS = ["Symbol", "Undl", "Right", "Mark", "IV", "Delta", "POP", "Score", "Vol/OI"];
 
@@ -29,23 +30,12 @@ export function ScannerTab({
   selectedAnalysis
 }: ScannerTabProps) {
   const selectedRef = useRef<HTMLDivElement>(null);
-  const [activeHeader, setActiveHeader] = useState<string | null>(null);
 
   useEffect(() => {
     if (selectedRef.current) {
       selectedRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [selected]);
-
-  // Close header info on click outside
-  useEffect(() => {
-    if (!activeHeader) return;
-    function handleClick() { setActiveHeader(null); }
-    document.addEventListener("click", handleClick);
-    return () => document.removeEventListener("click", handleClick);
-  }, [activeHeader]);
-
-  const activeDef = activeHeader ? getMetricDef(activeHeader) : null;
 
   return (
     <Panel
@@ -59,34 +49,24 @@ export function ScannerTab({
           <thead className="bg-black/30 text-left text-xs uppercase tracking-[0.16em] text-terminal-muted">
             <tr>
               {HEADERS.map((head) => {
-                const def = getMetricDef(head);
+                const hasDef = !!getMetricDef(head);
                 return (
                   <th key={head} className="border-b border-terminal-edge px-3 py-3">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setActiveHeader(activeHeader === head ? null : head); }}
-                      className={`flex items-center gap-1 transition ${
-                        def ? "cursor-pointer hover:text-terminal-cyan" : ""
-                      } ${activeHeader === head ? "text-terminal-cyan" : ""}`}
-                    >
-                      {head}
-                      {def && <Info size={10} className="opacity-40" />}
-                    </button>
+                    {hasDef ? (
+                      <HeaderTooltip term={head}>
+                        <span className="flex items-center gap-1 cursor-help hover:text-terminal-cyan transition">
+                          {head}
+                          <Info size={10} className="opacity-40" />
+                        </span>
+                      </HeaderTooltip>
+                    ) : (
+                      <span>{head}</span>
+                    )}
                   </th>
                 );
               })}
             </tr>
           </thead>
-
-          {/* Header info row */}
-          {activeDef && (
-            <thead>
-              <tr>
-                <td colSpan={9} className="p-0">
-                  <HeaderInfoBar def={activeDef} term={activeHeader!} onClose={() => setActiveHeader(null)} />
-                </td>
-              </tr>
-            </thead>
-          )}
 
           <tbody>
             {filteredRankedData.map((item) => {
@@ -119,9 +99,12 @@ export function ScannerTab({
 
           return (
             <div key={item.symbol} ref={isSelected ? selectedRef : undefined}>
-              <button
+              <div
                 onClick={() => onSelect(item.symbol)}
-                className={`w-full text-left rounded border p-3 transition ${
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter') onSelect(item.symbol); }}
+                className={`w-full text-left rounded border p-3 transition cursor-pointer ${
                   isSelected
                     ? "border-terminal-cyan/50 bg-terminal-cyan/5"
                     : "border-terminal-edge bg-black/20 hover:border-terminal-green/40"
@@ -142,7 +125,7 @@ export function ScannerTab({
                   <MiniStat label="Mark" value={`$${item.fairValue.toFixed(2)}`} />
                   <MiniStat label="IV" value={`${(item.iv * 100).toFixed(1)}%`} />
                 </div>
-              </button>
+              </div>
 
               {/* Expanded detail on mobile */}
               {isSelected && selectedOption && (
@@ -162,11 +145,9 @@ export function ScannerTab({
                     <MiniStat label="Delta" value={selectedOption.delta.toFixed(2)} />
                   </div>
 
-                  {/* AI note */}
+                  {/* ── SQARIMI: Çka me bo, Pse, Si, Rreziku ── */}
                   {selectedAnalysis && (
-                    <div className="mt-2 rounded border border-terminal-cyan/40 bg-terminal-cyan/10 p-2 text-xs leading-5 text-terminal-cyan">
-                      {selectedAnalysis.structure}. {selectedAnalysis.maxRiskText} {selectedAnalysis.maxRewardText}
-                    </div>
+                    <AlbanianRecommendationCard analysis={selectedAnalysis} symbol={selectedOption.symbol} compact />
                   )}
                   {selectedOption.warnings.length > 0 && (
                     <div className="mt-1.5 rounded border border-terminal-amber/40 bg-terminal-amber/10 p-2 text-xs leading-5 text-terminal-amber">
@@ -180,38 +161,6 @@ export function ScannerTab({
         })}
       </div>
     </Panel>
-  );
-}
-
-// ─── Header info bar (shown when clicking a column header) ──────────────────
-
-function HeaderInfoBar({ def, term, onClose }: { def: MetricDef; term: string; onClose: () => void }) {
-  return (
-    <div className="border-b border-terminal-cyan/30 bg-terminal-cyan/[0.06] px-4 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-terminal-cyan">{def.term}</span>
-            <span className="text-xs text-terminal-muted">{def.full}</span>
-          </div>
-          <div className="mt-2 space-y-1.5 text-xs leading-4">
-            <div>
-              <span className="text-terminal-green font-semibold">Çfarë është: </span>
-              <span className="text-terminal-text/90">{def.desc}</span>
-            </div>
-            <div>
-              <span className="text-terminal-amber font-semibold">Si përdoret: </span>
-              <span className="text-terminal-text/90">{def.use}</span>
-            </div>
-            <div>
-              <span className="text-terminal-cyan font-semibold">Tip: </span>
-              <span className="text-terminal-text/90">{def.tip}</span>
-            </div>
-          </div>
-        </div>
-        <button onClick={onClose} className="shrink-0 text-terminal-muted hover:text-white text-xs mt-0.5">✕</button>
-      </div>
-    </div>
   );
 }
 
@@ -323,11 +272,9 @@ function ScannerRowDesktop({
                 <MiniStat label="Rho" value={selectedOption.rho.toFixed(4)} />
               </div>
 
-              {/* AI analysis note */}
+              {/* ── SQARIMI: Çka me bo, Pse, Si, Rreziku ── */}
               {selectedAnalysis && (
-                <div className="mt-3 rounded border border-terminal-cyan/40 bg-terminal-cyan/10 p-3 text-xs leading-5 text-terminal-cyan">
-                  {selectedAnalysis.structure}. {selectedAnalysis.maxRiskText} {selectedAnalysis.maxRewardText}
-                </div>
+                <AlbanianRecommendationCard analysis={selectedAnalysis} symbol={selectedOption.symbol} />
               )}
 
               {/* Warnings */}
@@ -341,5 +288,138 @@ function ScannerRowDesktop({
         </tr>
       )}
     </>
+  );
+}
+
+// ─── Albanian Recommendation Card ──────────────────────────────────────────
+// Tregon: Çka me bo, Pse, Si ta bosh, dhe Rrezikun — gjithçka në shqip
+
+function AlbanianRecommendationCard({
+  analysis,
+  symbol,
+  compact
+}: {
+  analysis: AnalystVerdict;
+  symbol: string;
+  compact?: boolean;
+}) {
+  // Determine colors based on action
+  const isBuy = analysis.action.startsWith("BUY");
+  const isSell = analysis.action.startsWith("SELL");
+  const isAvoid = analysis.action === "AVOID";
+  const isWatch = analysis.action === "WATCH";
+
+  const actionColor = isAvoid
+    ? "text-red-400"
+    : isBuy
+      ? "text-terminal-green"
+      : isSell
+        ? "text-terminal-amber"
+        : "text-terminal-cyan";
+
+  const actionBg = isAvoid
+    ? "border-red-500/50 bg-red-500/10"
+    : isBuy
+      ? "border-terminal-green/50 bg-terminal-green/10"
+      : isSell
+        ? "border-terminal-amber/50 bg-terminal-amber/10"
+        : "border-terminal-cyan/50 bg-terminal-cyan/10";
+
+  const actionIcon = isAvoid
+    ? <AlertTriangle size={compact ? 14 : 18} className="text-red-400" />
+    : isBuy
+      ? <Crosshair size={compact ? 14 : 18} className="text-terminal-green" />
+      : isSell
+        ? <Shield size={compact ? 14 : 18} className="text-terminal-amber" />
+        : <Lightbulb size={compact ? 14 : 18} className="text-terminal-cyan" />;
+
+  if (compact) {
+    return (
+      <div className={`mt-2 rounded border p-2.5 text-xs leading-5 ${actionBg}`}>
+        <div className="flex items-center gap-2 mb-1.5">
+          {actionIcon}
+          <span className={`font-bold ${actionColor}`}>ÇKA ME BO: {analysis.action}</span>
+          <span className="text-terminal-muted ml-auto">Confidence: {analysis.confidence}%</span>
+        </div>
+        <p className="text-terminal-text/90">{analysis.actionAl}</p>
+        <p className="mt-1 text-terminal-text/80">{analysis.whyAl}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 space-y-2">
+      {/* ── ÇKA ME BO ── */}
+      <div className={`rounded border p-3.5 ${actionBg}`}>
+        <div className="flex items-center gap-2.5 mb-2">
+          {actionIcon}
+          <span className={`text-sm font-bold ${actionColor}`}>ÇKA ME BO: {analysis.action}</span>
+          <span className="ml-auto text-xs text-terminal-muted bg-black/30 px-2 py-0.5 rounded">
+            Besimi: {analysis.confidence}%
+          </span>
+        </div>
+        <p className="text-xs sm:text-sm leading-6 text-terminal-text/95">{analysis.actionAl}</p>
+      </div>
+
+      {/* ── PSE ── */}
+      <div className="rounded border border-terminal-cyan/30 bg-terminal-cyan/[0.05] p-3.5">
+        <div className="flex items-center gap-2 mb-2">
+          <Lightbulb size={16} className="text-terminal-cyan" />
+          <span className="text-sm font-bold text-terminal-cyan">PSE ME E BO KËTË?</span>
+        </div>
+        <p className="text-xs sm:text-sm leading-6 text-terminal-text/90">{analysis.whyAl}</p>
+      </div>
+
+      {/* ── SI TA BOSH ── */}
+      <div className="rounded border border-terminal-green/30 bg-terminal-green/[0.05] p-3.5">
+        <div className="flex items-center gap-2 mb-2">
+          <Crosshair size={16} className="text-terminal-green" />
+          <span className="text-sm font-bold text-terminal-green">SI TA BOSH (Hapat)</span>
+        </div>
+        <div className="text-xs sm:text-sm leading-6 text-terminal-text/90">
+          {analysis.howAl.split(/(?=\d\.\s)/).filter(Boolean).map((step, i) => (
+            <div key={i} className="flex gap-2 mb-0.5">
+              <span className="shrink-0 text-terminal-green/60">›</span>
+              <span>{step.trim()}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── RREZIKU ── */}
+      <div className={`rounded border p-3.5 ${
+        analysis.riskLabel === "Very High"
+          ? "border-red-500/40 bg-red-500/[0.08]"
+          : analysis.riskLabel === "High"
+            ? "border-terminal-amber/40 bg-terminal-amber/[0.08]"
+            : analysis.riskLabel === "Medium"
+              ? "border-yellow-500/30 bg-yellow-500/[0.05]"
+              : "border-terminal-green/30 bg-terminal-green/[0.05]"
+      }`}>
+        <div className="flex items-center gap-2 mb-2">
+          <Shield size={16} className={
+            analysis.riskLabel === "Very High"
+              ? "text-red-400"
+              : analysis.riskLabel === "High"
+                ? "text-terminal-amber"
+                : analysis.riskLabel === "Medium"
+                  ? "text-yellow-500"
+                  : "text-terminal-green"
+          } />
+          <span className={`text-sm font-bold ${
+            analysis.riskLabel === "Very High"
+              ? "text-red-400"
+              : analysis.riskLabel === "High"
+                ? "text-terminal-amber"
+                : analysis.riskLabel === "Medium"
+                  ? "text-yellow-500"
+                  : "text-terminal-green"
+          }`}>
+            RREZIKU: {analysis.riskLabel === "Low" ? "I Ulët" : analysis.riskLabel === "Medium" ? "Mesatar" : analysis.riskLabel === "High" ? "I Lartë" : "Shumë I Lartë"}
+          </span>
+        </div>
+        <p className="text-xs sm:text-sm leading-6 text-terminal-text/90">{analysis.riskAl}</p>
+      </div>
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Gauge } from "lucide-react";
+import { AlertTriangle, Crosshair, Gauge, Lightbulb, Shield } from "lucide-react";
 import type { TerminalOption } from "@/lib/workstation";
 import type { AnalystVerdict } from "@/lib/aiHistoricalAnalyst";
 import { stockMoney, formatSource } from "@/lib/utils";
@@ -80,12 +80,14 @@ export function SelectedContractPanel({ selectedOption, selectedAnalysis }: Sele
           <MiniStat label="Quality" value={`${selectedOption.dataQuality}/100`} />
         </div>
 
-        {/* AI analysis note */}
+        {/* ── SQARIMI: Çka me bo, Pse, Si, Rreziku ── */}
         {selectedAnalysis && (
-          <div className="mt-3 rounded border border-terminal-cyan/40 bg-terminal-cyan/10 p-2.5 sm:p-3 text-xs leading-5 text-terminal-cyan">
-            {selectedAnalysis.structure}. {selectedAnalysis.maxRiskText} {selectedAnalysis.maxRewardText}
+          <div className="mt-3 space-y-2">
+            {/* ÇKA ME BO */}
+            <SidebarRecommendation analysis={selectedAnalysis} />
           </div>
         )}
+
         {selectedOption.warnings.length > 0 && (
           <div className="mt-2 rounded border border-terminal-amber/40 bg-terminal-amber/10 p-2.5 sm:p-3 text-xs leading-5 text-terminal-amber">
             {selectedOption.warnings.join(" ")}
@@ -93,5 +95,113 @@ export function SelectedContractPanel({ selectedOption, selectedAnalysis }: Sele
         )}
       </div>
     </Panel>
+  );
+}
+
+// ─── Sidebar recommendation card (compact version for the sidebar) ──────
+
+function SidebarRecommendation({ analysis }: { analysis: AnalystVerdict }) {
+  const isBuy = analysis.action.startsWith("BUY");
+  const isSell = analysis.action.startsWith("SELL");
+  const isAvoid = analysis.action === "AVOID";
+
+  const actionColor = isAvoid
+    ? "text-red-400"
+    : isBuy
+      ? "text-terminal-green"
+      : isSell
+        ? "text-terminal-amber"
+        : "text-terminal-cyan";
+
+  const actionBg = isAvoid
+    ? "border-red-500/50 bg-red-500/10"
+    : isBuy
+      ? "border-terminal-green/50 bg-terminal-green/10"
+      : isSell
+        ? "border-terminal-amber/50 bg-terminal-amber/10"
+        : "border-terminal-cyan/50 bg-terminal-cyan/10";
+
+  const actionIcon = isAvoid
+    ? <AlertTriangle size={15} className="text-red-400" />
+    : isBuy
+      ? <Crosshair size={15} className="text-terminal-green" />
+      : isSell
+        ? <Shield size={15} className="text-terminal-amber" />
+        : <Lightbulb size={15} className="text-terminal-cyan" />;
+
+  return (
+    <>
+      {/* ÇKA ME BO */}
+      <div className={`rounded border p-2.5 ${actionBg}`}>
+        <div className="flex items-center gap-2 mb-1.5">
+          {actionIcon}
+          <span className={`text-xs font-bold ${actionColor}`}>ÇKA ME BO: {analysis.action}</span>
+          <span className="ml-auto text-[10px] text-terminal-muted bg-black/30 px-1.5 py-0.5 rounded">
+            {analysis.confidence}%
+          </span>
+        </div>
+        <p className="text-xs leading-5 text-terminal-text/90">{analysis.actionAl}</p>
+      </div>
+
+      {/* PSE */}
+      <div className="rounded border border-terminal-cyan/30 bg-terminal-cyan/[0.05] p-2.5">
+        <div className="flex items-center gap-2 mb-1.5">
+          <Lightbulb size={14} className="text-terminal-cyan" />
+          <span className="text-xs font-bold text-terminal-cyan">PSE?</span>
+        </div>
+        <p className="text-xs leading-5 text-terminal-text/85">{analysis.whyAl}</p>
+      </div>
+
+      {/* SI TA BOSH */}
+      <div className="rounded border border-terminal-green/30 bg-terminal-green/[0.05] p-2.5">
+        <div className="flex items-center gap-2 mb-1.5">
+          <Crosshair size={14} className="text-terminal-green" />
+          <span className="text-xs font-bold text-terminal-green">SI TA BOSH?</span>
+        </div>
+        <div className="text-xs leading-5 text-terminal-text/85">
+          {analysis.howAl.split(/(?=\d\.\s)/).filter(Boolean).map((step, i) => (
+            <div key={i} className="flex gap-1.5 mb-0.5">
+              <span className="shrink-0 text-terminal-green/60">›</span>
+              <span>{step.trim()}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* RREZIKU */}
+      <div className={`rounded border p-2.5 ${
+        analysis.riskLabel === "Very High"
+          ? "border-red-500/40 bg-red-500/[0.08]"
+          : analysis.riskLabel === "High"
+            ? "border-terminal-amber/40 bg-terminal-amber/[0.08]"
+            : analysis.riskLabel === "Medium"
+              ? "border-yellow-500/30 bg-yellow-500/[0.05]"
+              : "border-terminal-green/30 bg-terminal-green/[0.05]"
+      }`}>
+        <div className="flex items-center gap-2 mb-1.5">
+          <Shield size={14} className={
+            analysis.riskLabel === "Very High"
+              ? "text-red-400"
+              : analysis.riskLabel === "High"
+                ? "text-terminal-amber"
+                : analysis.riskLabel === "Medium"
+                  ? "text-yellow-500"
+                  : "text-terminal-green"
+          } />
+          <span className={`text-xs font-bold ${
+            analysis.riskLabel === "Very High"
+              ? "text-red-400"
+              : analysis.riskLabel === "High"
+                ? "text-terminal-amber"
+                : analysis.riskLabel === "Medium"
+                  ? "text-yellow-500"
+                  : "text-terminal-green"
+          }`}>
+            RREZIKU: {analysis.riskLabel === "Low" ? "I Ulët" : analysis.riskLabel === "Medium" ? "Mesatar" : analysis.riskLabel === "High" ? "I Lartë" : "Shumë I Lartë"}
+          </span>
+        </div>
+        <p className="text-xs leading-5 text-terminal-text/85">{analysis.riskAl}</p>
+      </div>
+    </>
   );
 }
