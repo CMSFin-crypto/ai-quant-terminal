@@ -164,7 +164,7 @@ function SidebarRecommendation({ analysis }: { analysis: AnalystVerdict }) {
           <span className="text-xs font-bold text-terminal-green">SI TA BËSH?</span>
         </div>
         <div className="text-xs leading-5 text-terminal-text/85">
-          {analysis.howAl.split(/(?=\d\.\s)/).filter(Boolean).map((step, i) => (
+          {analysis.howAl.split(/\n/).filter(Boolean).map((step, i) => (
             <div key={i} className="flex gap-1.5 mb-0.5">
               <span className="shrink-0 text-terminal-green/60">›</span>
               <span>{step.trim()}</span>

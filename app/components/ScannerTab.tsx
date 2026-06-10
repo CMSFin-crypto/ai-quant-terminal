@@ -377,7 +377,7 @@ function AlbanianRecommendationCard({
           <span className="text-sm font-bold text-terminal-green">SI TA BËSH (Hapat)</span>
         </div>
         <div className="text-xs sm:text-sm leading-6 text-terminal-text/90">
-          {analysis.howAl.split(/(?=\d\.\s)/).filter(Boolean).map((step, i) => (
+          {analysis.howAl.split(/\n/).filter(Boolean).map((step, i) => (
             <div key={i} className="flex gap-2 mb-0.5">
               <span className="shrink-0 text-terminal-green/60">›</span>
               <span>{step.trim()}</span>
