@@ -217,6 +217,41 @@ export const METRICS: Record<string, MetricDef> = {
     desc: "Opsioni është Out of The Money kur nuk ka vlerë të brendshme. Për Call: Undl < Strike. Për Put: Undl > Strike. Opsioni OTM nuk do të kishte fitim nëse ushtrohej tani — e gjithë premium është Extrinsic Value.",
     use: "Opsionet OTM janë më të lira por me probabilitet më të ulët fitimi (Delta nën 0.50). Shitësit e opsioneve preferojnë OTM sepse kanë probabilitet më të lartë që të skadojnë pa vlerë.",
     tip: "OTM opsionet kanë levë më të madhe financiare — mund të fitoni shumë me investim të vogël, por mund të humbni gjithë premium nëse aksioni nuk lëviz mjaftueshëm. Përdorni vetëm me madhësi pozicioni të kontrolluar."
+  },
+  "OTM Call": {
+    term: "OTM Call",
+    full: "Out of The Money Call",
+    desc: "Call opsion Strike-i i të cilit është MBI çmimin aktual të aksionit (Strike > Undl). Nuk ka Intrinsic Value — e gjithë premium është Extrinsic (time value). Në grafikun e Volatility Skew, OTM Calls janë në krahun e DJATHTË (strike më të larta se çmimi aktual).",
+    use: "Në kontekstin e Vol Skew: IV e OTM Calls tregon sa tregu priton rritje të mëdha. Nëse IV e OTM Call është e ulët krahasuar me OTM Put → tregu nuk priton rritje të mëdha. Nëse IV e OTM Call është e lartë → tregu priton rritje të forta (bullish sentiment).",
+    tip: "Në një treg me Put Skew (smirk), OTM Calls janë relativisht të lira sepse tregu nuk priton rritje — mund të jenë mundësi për spekulim bullish me kosto të ulët. Në një Smile, OTM Calls janë të shtrenjta sepse tregu priton lëvizje të mëdha në të dyja drejtimet."
+  },
+  "OTM Put": {
+    term: "OTM Put",
+    full: "Out of The Money Put",
+    desc: "Put opsion Strike-i i të cilit është NËN çmimin aktual të aksionit (Strike < Undl). Nuk ka Intrinsic Value — e gjithë premium është Extrinsic (time value). Në grafikun e Volatility Skew, OTM Puts janë në krahun e MAJTË (strike më të ulëta se çmimi aktual).",
+    use: "Në kontekstin e Vol Skew: IV e OTM Puts tregon sa tregu frikësohet nga rënia. Nëse IV e OTM Put është shumë më e lartë se OTM Call → tregu paguan 'crash premium' për mbrojtje nga rënia. Kjo është situata më e zakonshme dhe quhet 'Put Skew' ose 'Smirk'.",
+    tip: "OTM Puts me IV shumë të lartë tregojnë frikë ekstreme — shitja e tyre është rrezikuese sepse jeni duke shitur insurance kur tregu e vlerëson shumë. Por blerja e tyre si mbrojtje kushton shumë. Konsideroni Put Credit Spreads si alternativë."
+  },
+  "Vol Skew Flat": {
+    term: "Vol Skew Flat",
+    full: "Flat Volatility Skew",
+    desc: "Kur IV është relativisht e njëjtë në të gjitha strike (OTM Puts, ATM, OTM Calls kanë IV të ngjashme). Grafiku i IV vs Strike është pothuajse një vijë horizontale. Kjo do të thotë se tregu nuk frikësohet veçanërisht nga rënia as nuk priton rritje të mëdha.",
+    use: "Flat Skew është tipike për tregje me volatilitet të ulët dhe pa ngjarje të afërta. Në këtë mjedis: (1) Opsionet kanë kosto të ngjashme për mbrojtje nga rënia dhe spekulim për rritje, (2) Spread strategjitë nuk kanë avantazh të veçantë, (3) Shitja e opsioneve është më pak e rrezikshme sepse nuk keni 'crash premium' të mbuluar.",
+    tip: "Flat Skew është i rrallë në tregjet e aksioneve individuale — zakonisht shihet në inde (SPY, QQQ). Kur shfaqet në aksione, mund të tregojë se tregu është i qetë por edhe se mund të nënvlerëson rrezikun. Kujdes para ngjarjeve — flat skew mund të bëhet smirk shpejt."
+  },
+  "Vol Skew Smile": {
+    term: "Vol Skew Smile",
+    full: "Volatility Smile",
+    desc: "Kur IV është e lartë në TË DYJA krahët e grafikut — si OTM Puts ashtu edhe OTM Calls kanë IV më të lartë se ATM. Grafiku i IV vs Strike formon një 'buzëqeshje' (U-shape). Kjo do të thotë se tregu priton lëvizje të mëdha në ÇFARËDOLLOJ drejtimi.",
+    use: "Smile është tipike para ngjarjeve të mëdha (earnings, Fed, zgjedhje, etj.). Në këtë mjedis: (1) Të gjitha opsionet janë të shtrenjta, (2) Straddle/Strangle janë strategji të mira vetëm nëse lëvizja do të jetë më e madhe se sa IV tregon, (3) Shitja e opsioneve (iron condor, credit spreads) mund të jetë e leverdishme sepse merrni premium të lartë.",
+    tip: "Smile është sinjal që tregu priton lëvizje të mëdha. Pas ngjarjes, IV zakonisht bie (IV crush) dhe Smile kthehet në Smirk ose Flat. Kjo është arsyeja pse blerja e opsioneve para earnings është e vështirë — jo vetëm duhet të gjeni drejtimin, por edhe duhet të mposhtni IV crush."
+  },
+  "Vol Skew Smirk": {
+    term: "Vol Skew Smirk",
+    full: "Volatility Smirk (Put Skew)",
+    desc: "Kur vetëm OTM Puts kanë IV të lartë, ndërsa OTM Calls kanë IV afër ATM ose më të ulët. Grafiku i IV vs Strike është i prirur — më i lartë në të majtë (put strikes) dhe më i ulët në të djathtë (call strikes). Forma quhet 'smirk' sepse ngjan me një buzëqeshje asimetrike. Kjo është forma MË E ZAKONSHME e skew.",
+    use: "Smirk tregon se tregu frikësohet më shumë nga rënia se sa priton rritje. Në këtë mjedis: (1) OTM Puts janë të shtrenjta — shitja e tyre është e rrezikshme, (2) OTM Calls janë relativisht të lira — mund të jenë mundësi për spekulim bullish, (3) Risk Reversal (buy call + sell put) kushton më pak, (4) Covered Calls janë të leverdishme sepse shisni opsione të shtrenjta.",
+    tip: "Smirk është 'normalja' në tregjet e aksioneve — investitorët institucionalë blejnë OTM Puts si insurance, duke shtyrë IV lart. Sa më i thellë smirk (skew ratio > 1.4), aq më i madh frika. Në fund të një trendi bearish, smirk i thellë mund të jetë sinjal i një bote — kur frika është maksimale, shpesh vjen kthimi."
   }
 };
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useRef, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { GitBranch, TrendingUp, TrendingDown, BarChart3, Info, ArrowLeftRight, AlertTriangle } from "lucide-react";
 import {
   LineChart,
@@ -19,12 +21,129 @@ import {
 } from "recharts";
 import type { TerminalOption } from "@/lib/workstation";
 import { generateVolSkew, type SkewPoint } from "@/lib/volAnalytics";
+import { getMetricDef, type MetricDef } from "@/lib/metricDefs";
 import { Panel } from "./Panel";
 import { Metric } from "./Metric";
 
 interface VolSkewTabProps {
   selectedOption: TerminalOption;
 }
+
+// ─── Clickable Skew Term Popup ─────────────────────────────────────────
+
+function SkewTermPopup({ termKey, children }: { termKey: string; children: React.ReactNode }) {
+  const def = getMetricDef(termKey);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  const updatePos = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({
+        top: rect.bottom + 8,
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - 360))
+      });
+    }
+  }, []);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (open) {
+      setOpen(false);
+    } else {
+      updatePos();
+      setOpen(true);
+    }
+  }, [open, updatePos]);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleDocClick(e: MouseEvent) {
+      if (
+        popupRef.current && !popupRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleDocClick);
+    return () => document.removeEventListener("mousedown", handleDocClick);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) updatePos();
+  }, [open, updatePos]);
+
+  if (!def) return <>{children}</>;
+
+  return (
+    <>
+      <span
+        ref={triggerRef}
+        className="cursor-pointer hover:text-terminal-cyan transition-colors"
+        onClick={handleClick}
+      >
+        {children}
+      </span>
+
+      {open && pos && typeof document !== "undefined" && createPortal(
+        <div
+          ref={popupRef}
+          className="fixed z-[9999] w-[320px] sm:w-[360px] rounded-lg border border-terminal-cyan/50 bg-[#091916] shadow-[0_12px_40px_rgba(0,0,0,0.5),0_0_20px_rgba(0,200,180,0.08)] p-3.5"
+          style={{ top: pos.top, left: pos.left }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between gap-2 mb-2.5">
+            <div>
+              <span className="text-sm font-bold text-terminal-cyan">{def.term}</span>
+              <span className="ml-2 text-[11px] text-terminal-muted">{def.full}</span>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+              className="text-terminal-muted/50 hover:text-white text-xs leading-none"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="space-y-2 text-xs leading-[1.6]">
+            <div>
+              <span className="text-terminal-green font-semibold">Çfarë është: </span>
+              <span className="text-terminal-text/90">{def.desc}</span>
+            </div>
+            <div>
+              <span className="text-terminal-amber font-semibold">Si përdoret: </span>
+              <span className="text-terminal-text/90">{def.use}</span>
+            </div>
+            <div>
+              <span className="text-terminal-cyan font-semibold">Tip: </span>
+              <span className="text-terminal-text/90">{def.tip}</span>
+            </div>
+          </div>
+          <div className="mt-2 pt-2 border-t border-terminal-edge text-[10px] text-terminal-muted/60 text-right">
+            Klikoni kudo për ta mbyllur
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
+// ─── Main Component ────────────────────────────────────────────────────
 
 export function VolSkewTab({ selectedOption }: VolSkewTabProps) {
   const skewData = generateVolSkew(selectedOption);
@@ -37,11 +156,9 @@ export function VolSkewTab({ selectedOption }: VolSkewTabProps) {
   const atmPoint = skewData[atmIndex] || skewData[Math.floor(skewData.length / 2)];
 
   // ─── OTM Put vs OTM Call IV Comparison ────────────────────────────────
-  // Extract OTM puts (strikes below spot) and OTM calls (strikes above spot)
   const otmPuts = skewData.filter(p => p.strike < spot);
   const otmCalls = skewData.filter(p => p.strike > spot);
 
-  // Match by delta: for each OTM put delta, find closest OTM call with same |delta|
   const otmComparisonData = otmPuts.map((putPoint, i) => {
     const callPoint = otmCalls[otmCalls.length - 1 - i];
     if (!callPoint) return null;
@@ -73,20 +190,18 @@ export function VolSkewTab({ selectedOption }: VolSkewTabProps) {
   }[];
 
   // Calculate skew metrics
-  const deepOTMPutIV = skewData[2]?.iv || 0;  // Deep OTM put (low strikes)
-  const deepOTMCallIV = skewData[skewData.length - 3]?.iv || 0;  // OTM call
+  const deepOTMPutIV = skewData[2]?.iv || 0;
+  const deepOTMCallIV = skewData[skewData.length - 3]?.iv || 0;
   const putSkew = atmPoint.iv > 0 ? ((deepOTMPutIV - atmPoint.iv) / atmPoint.iv * 100) : 0;
   const callSkew = atmPoint.iv > 0 ? ((deepOTMCallIV - atmPoint.iv) / atmPoint.iv * 100) : 0;
   const isSmile = putSkew > 5 && callSkew > 3;
   const isSmirk = putSkew > 8 && callSkew < 2;
 
-  // Risk Reversal: 25-delta call - 25-delta put (approx from skew data)
   const riskReversal = otmComparisonData.length >= 2
     ? otmComparisonData[1].callPrice - otmComparisonData[1].putPrice
     : 0;
   const skewRatio = deepOTMCallIV > 0 ? deepOTMPutIV / deepOTMCallIV : 1;
 
-  // Average OTM put IV vs OTM call IV
   const avgOTMPutIV = otmPuts.length > 0
     ? otmPuts.reduce((sum, p) => sum + p.iv, 0) / otmPuts.length
     : 0;
@@ -94,30 +209,55 @@ export function VolSkewTab({ selectedOption }: VolSkewTabProps) {
     ? otmCalls.reduce((sum, p) => sum + p.iv, 0) / otmCalls.length
     : 0;
 
+  // Determine skew type key for popup
+  const skewTypeKey = isSmile ? "Vol Skew Smile" : isSmirk ? "Vol Skew Smirk" : "Vol Skew Flat";
+
   return (
     <Panel title="Volatility Smile / Skew Analysis" icon={<GitBranch size={17} />}>
-      {/* Skew type identification */}
+      {/* Skew type identification — with clickable labels */}
       <div className="grid gap-2 sm:gap-3 grid-cols-2 sm:grid-cols-4">
-        <Metric
-          label="Tipi i Skew"
-          value={isSmile ? "Smile" : isSmirk ? "Smirk (Put Skew)" : "Afër Flat"}
-          accent={isSmirk ? "amber" : isSmile ? "cyan" : "green"}
-        />
-        <Metric
-          label="IV ATM"
-          value={`${atmPoint.iv.toFixed(1)}%`}
-          accent="cyan"
-        />
-        <Metric
-          label="Put Skew"
-          value={`${putSkew > 0 ? "+" : ""}${putSkew.toFixed(1)}%`}
-          accent={putSkew > 10 ? "amber" : "green"}
-        />
-        <Metric
-          label="Call Skew"
-          value={`${callSkew > 0 ? "+" : ""}${callSkew.toFixed(1)}%`}
-          accent="cyan"
-        />
+        <div className="rounded border border-terminal-edge bg-black/20 px-2.5 py-1.5 sm:px-3 sm:py-2">
+          <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.12em] sm:tracking-[0.14em] text-terminal-muted">
+            <SkewTermPopup termKey={skewTypeKey}>
+              Tipi i Skew <span className="text-[8px] opacity-50">ⓘ</span>
+            </SkewTermPopup>
+          </div>
+          <div className={`mt-0.5 sm:mt-1 text-xs sm:text-sm font-semibold ${
+            isSmirk ? "text-terminal-amber" : isSmile ? "text-terminal-cyan" : "text-terminal-green"
+          }`}>
+            {isSmile ? "Smile" : isSmirk ? "Smirk (Put Skew)" : "Afër Flat"}
+          </div>
+        </div>
+        <div className="rounded border border-terminal-edge bg-black/20 px-2.5 py-1.5 sm:px-3 sm:py-2">
+          <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.12em] sm:tracking-[0.14em] text-terminal-muted">
+            <SkewTermPopup termKey="ATM">
+              IV ATM <span className="text-[8px] opacity-50">ⓘ</span>
+            </SkewTermPopup>
+          </div>
+          <div className="mt-0.5 sm:mt-1 text-xs sm:text-sm font-semibold text-terminal-cyan">
+            {atmPoint.iv.toFixed(1)}%
+          </div>
+        </div>
+        <div className="rounded border border-terminal-edge bg-black/20 px-2.5 py-1.5 sm:px-3 sm:py-2">
+          <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.12em] sm:tracking-[0.14em] text-terminal-muted">
+            <SkewTermPopup termKey="OTM Put">
+              Put Skew <span className="text-[8px] opacity-50">ⓘ</span>
+            </SkewTermPopup>
+          </div>
+          <div className={`mt-0.5 sm:mt-1 text-xs sm:text-sm font-semibold ${putSkew > 10 ? "text-terminal-amber" : "text-terminal-green"}`}>
+            {putSkew > 0 ? "+" : ""}{putSkew.toFixed(1)}%
+          </div>
+        </div>
+        <div className="rounded border border-terminal-edge bg-black/20 px-2.5 py-1.5 sm:px-3 sm:py-2">
+          <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.12em] sm:tracking-[0.14em] text-terminal-muted">
+            <SkewTermPopup termKey="OTM Call">
+              Call Skew <span className="text-[8px] opacity-50">ⓘ</span>
+            </SkewTermPopup>
+          </div>
+          <div className="mt-0.5 sm:mt-1 text-xs sm:text-sm font-semibold text-terminal-cyan">
+            {callSkew > 0 ? "+" : ""}{callSkew.toFixed(1)}%
+          </div>
+        </div>
       </div>
 
       {/* ─── OTM Put vs OTM Call IV Comparison Section ───────────────── */}
@@ -125,40 +265,45 @@ export function VolSkewTab({ selectedOption }: VolSkewTabProps) {
         <div className="flex items-center gap-2 mb-2">
           <ArrowLeftRight size={15} className="text-terminal-cyan" />
           <h3 className="text-xs font-semibold uppercase tracking-widest text-terminal-muted">
-            OTM Put vs OTM Call — Krahasimi i IV
+            <SkewTermPopup termKey="OTM Put">
+              OTM Put
+            </SkewTermPopup>
+            {" vs "}
+            <SkewTermPopup termKey="OTM Call">
+              OTM Call
+            </SkewTermPopup>
+            {" — Krahasimi i IV"}
           </h3>
         </div>
 
-        {/* Key metrics for OTM comparison */}
+        {/* Key metrics for OTM comparison — with clickable labels */}
         <div className="grid gap-2 sm:gap-3 grid-cols-2 sm:grid-cols-5 mb-3">
-          <Metric
-            label="OTM Put IV (Mes.)"
-            value={`${avgOTMPutIV.toFixed(1)}%`}
-            accent="amber"
-          />
-          <Metric
-            label="OTM Call IV (Mes.)"
-            value={`${avgOTMCallIV.toFixed(1)}%`}
-            accent="green"
-          />
-          <Metric
-            label="Skew Ratio"
-            value={skewRatio.toFixed(2)}
-            accent={skewRatio > 1.3 ? "amber" : skewRatio > 1.1 ? "cyan" : "green"}
-          />
-          <Metric
-            label="Risk Reversal"
-            value={`$${riskReversal.toFixed(2)}`}
-            accent={riskReversal < 0 ? "amber" : "green"}
-          />
-          <Metric
-            label="IV Spread (P-C)"
-            value={`${(avgOTMPutIV - avgOTMCallIV).toFixed(1)}%`}
-            accent={avgOTMPutIV - avgOTMCallIV > 5 ? "amber" : "green"}
-          />
+          <div className="rounded border border-terminal-edge bg-black/20 px-2.5 py-1.5 sm:px-3 sm:py-2">
+            <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.12em] sm:tracking-[0.14em] text-terminal-muted">
+              <SkewTermPopup termKey="OTM Put">
+                OTM Put IV (Mes.) <span className="text-[8px] opacity-50">ⓘ</span>
+              </SkewTermPopup>
+            </div>
+            <div className="mt-0.5 sm:mt-1 text-xs sm:text-sm font-semibold text-terminal-amber">
+              {avgOTMPutIV.toFixed(1)}%
+            </div>
+          </div>
+          <div className="rounded border border-terminal-edge bg-black/20 px-2.5 py-1.5 sm:px-3 sm:py-2">
+            <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.12em] sm:tracking-[0.14em] text-terminal-muted">
+              <SkewTermPopup termKey="OTM Call">
+                OTM Call IV (Mes.) <span className="text-[8px] opacity-50">ⓘ</span>
+              </SkewTermPopup>
+            </div>
+            <div className="mt-0.5 sm:mt-1 text-xs sm:text-sm font-semibold text-terminal-green">
+              {avgOTMCallIV.toFixed(1)}%
+            </div>
+          </div>
+          <Metric label="Skew Ratio" value={skewRatio.toFixed(2)} accent={skewRatio > 1.3 ? "amber" : skewRatio > 1.1 ? "cyan" : "green"} />
+          <Metric label="Risk Reversal" value={`$${riskReversal.toFixed(2)}`} accent={riskReversal < 0 ? "amber" : "green"} />
+          <Metric label="IV Spread (P-C)" value={`${(avgOTMPutIV - avgOTMCallIV).toFixed(1)}%`} accent={avgOTMPutIV - avgOTMCallIV > 5 ? "amber" : "green"} />
         </div>
 
-        {/* Skew ratio interpretation */}
+        {/* Skew ratio interpretation — with clickable skew type */}
         <div className={`rounded border p-3 mb-3 ${
           skewRatio > 1.4
             ? "border-terminal-amber/40 bg-terminal-amber/[0.08]"
@@ -174,10 +319,10 @@ export function VolSkewTab({ selectedOption }: VolSkewTabProps) {
               skewRatio > 1.4 ? "text-terminal-amber" : skewRatio > 1.15 ? "text-terminal-cyan" : "text-terminal-green"
             }`}>
               {skewRatio > 1.4
-                ? "SKEW E LARTË — OTM Puts janë shumë më të shtrenjta se OTM Calls"
+                ? <><SkewTermPopup termKey="Vol Skew Smirk">SKEW E LARTË</SkewTermPopup> — OTM Puts janë shumë më të shtrenjta se OTM Calls</>
                 : skewRatio > 1.15
-                  ? "SKEW NORMALE — OTM Puts kanë premium modest mbi OTM Calls"
-                  : "SKEW E ULËT — OTM Puts dhe Calls kanë IV të ngjashme"}
+                  ? <><SkewTermPopup termKey={skewTypeKey}>SKEW NORMALE</SkewTermPopup> — OTM Puts kanë premium modest mbi OTM Calls</>
+                  : <><SkewTermPopup termKey="Vol Skew Flat">SKEW E ULËT</SkewTermPopup> — OTM Puts dhe Calls kanë IV të ngjashme</>}
             </span>
           </div>
           <p className="text-xs leading-5 text-terminal-text/85">
@@ -389,6 +534,21 @@ export function VolSkewTab({ selectedOption }: VolSkewTabProps) {
             </LineChart>
           </ResponsiveContainer>
         </div>
+        {/* Chart legend with clickable terms */}
+        <div className="flex flex-wrap gap-3 mt-2 text-[10px] text-terminal-muted">
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-terminal-amber" />
+            <SkewTermPopup termKey="OTM Put">OTM Put<span className="opacity-50 ml-0.5">ⓘ</span></SkewTermPopup>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-terminal-cyan" />
+            <SkewTermPopup termKey="ATM">ATM<span className="opacity-50 ml-0.5">ⓘ</span></SkewTermPopup>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-terminal-green" />
+            <SkewTermPopup termKey="OTM Call">OTM Call<span className="opacity-50 ml-0.5">ⓘ</span></SkewTermPopup>
+          </span>
+        </div>
       </div>
 
       {/* Call/Put IV comparison */}
@@ -473,7 +633,7 @@ export function VolSkewTab({ selectedOption }: VolSkewTabProps) {
 
       {/* Educational note */}
       <div className="mt-3 rounded border border-terminal-edge bg-black/20 p-3 text-xs text-terminal-text/60 leading-5">
-        <b>Volatility Smile vs Skew:</b> Kur IV është e lartë në të dyja krahë (OTM calls + OTM puts), quhet &ldquo;smile&rdquo; — tregu priton lëvizje të mëdha. Kur vetëm OTM puts kanë IV të lartë, quhet &ldquo;smirk&rdquo; ose &ldquo;put skew&rdquo; — tregu frikësohet më shumë nga rënia. Put skew është më e zakonshme sepse investitorët paguajnë më shumë për mbrojtje (insurance) nga rënia. Skew Ratio mbi 1.3 tregon frikë të konsiderueshme — shitja e puts është rrezikuese, por blerja e calls mund të jetë e leverdishme.
+        <b>Volatility Smile vs Skew:</b> Kur IV është e lartë në të dyja krahë (OTM calls + OTM puts), quhet &ldquo;smile&rdquo; — tregu priton lëvizje të mëdha. Kur vetëm OTM puts kanë IV të lartë, quhet &ldquo;smirk&rdquo; ose &ldquo;put skew&rdquo; — tregu frikësohet më shumë nga rënia. Put skew është më e zakonshme sepse investitorët paguajnë më shumë për mbrojtje (insurance) nga rënia. Skew Ratio mbi 1.3 tregon frikë të konsiderueshme — shitja e puts është rrezikuese, por blerja e calls mund të jetë e leverdishme. Klikoni mbi termat me ⓘ për shpjegime të detajuara.
       </div>
     </Panel>
   );
