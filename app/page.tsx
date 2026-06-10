@@ -54,7 +54,7 @@ export default function Page() {
   const existingSymbols = useMemo(() => allStocks.map((s) => s.symbol), [allStocks]);
 
   const selectedOption = useMemo(
-    () => data.find((item) => item.symbol === selected) || data[0],
+    () => data.find((item) => item.symbol === selected) || data.find((item) => item.symbol === "NVDA") || data[0],
     [data, selected]
   );
 
