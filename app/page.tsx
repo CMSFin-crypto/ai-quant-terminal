@@ -218,7 +218,9 @@ export default function Page() {
 
   useEffect(() => {
     if (data.length && !data.some((item) => item.symbol === selected)) {
-      setSelected(data[0].symbol);
+      // Prefer NVDA as default, otherwise pick the first available stock
+      const nvda = data.find((item) => item.symbol === "NVDA");
+      setSelected(nvda ? nvda.symbol : data[0].symbol);
     }
   }, [data, selected]);
 
