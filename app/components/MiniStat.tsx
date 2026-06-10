@@ -100,7 +100,7 @@ export function MiniStat({ label, value }: { label: string; value: string }) {
           className={`text-[9px] sm:text-[10px] uppercase tracking-[0.10em] sm:tracking-[0.12em] ${
             def ? "text-terminal-cyan cursor-pointer hover:text-terminal-cyan/80" : "text-terminal-muted"
           } flex items-center gap-1`}
-          title={def ? `Kliko ose hover për info rreth ${label}` : undefined}
+          title={def ? `Klikoni ose hover për info rreth ${label}` : undefined}
         >
           {label}
           {def && <span className="text-[8px] opacity-50">ⓘ</span>}
@@ -164,7 +164,7 @@ export function MiniStat({ label, value }: { label: string; value: string }) {
             </div>
             {pinned && (
               <div className="mt-2 pt-2 border-t border-terminal-edge text-[10px] text-terminal-muted/60 text-right">
-                Kliko kudo për ta mbyllur
+                Klikoni kudo për ta mbyllur
               </div>
             )}
           </div>

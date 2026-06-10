@@ -162,7 +162,7 @@ export function HeaderTooltip({ term, children }: { term: string; children: Reac
             {/* Pinned indicator */}
             {pinned && (
               <div className="mt-2 pt-2 border-t border-terminal-edge text-[10px] text-terminal-muted/60 text-right">
-                Kliko kudo për ta mbyllur
+                Klikoni kudo për ta mbyllur
               </div>
             )}
           </div>

@@ -135,7 +135,7 @@ function SidebarRecommendation({ analysis }: { analysis: AnalystVerdict }) {
       <div className={`rounded border p-2.5 ${actionBg}`}>
         <div className="flex items-center gap-2 mb-1.5">
           {actionIcon}
-          <span className={`text-xs font-bold ${actionColor}`}>ÇKA ME BO: {analysis.action}</span>
+          <span className={`text-xs font-bold ${actionColor}`}>ÇFARË TË BËSH: {analysis.action}</span>
           <span className="ml-auto text-[10px] text-terminal-muted bg-black/30 px-1.5 py-0.5 rounded">
             {analysis.confidence}%
           </span>
@@ -156,7 +156,7 @@ function SidebarRecommendation({ analysis }: { analysis: AnalystVerdict }) {
       <div className="rounded border border-terminal-green/30 bg-terminal-green/[0.05] p-2.5">
         <div className="flex items-center gap-2 mb-1.5">
           <Crosshair size={14} className="text-terminal-green" />
-          <span className="text-xs font-bold text-terminal-green">SI TA BOSH?</span>
+          <span className="text-xs font-bold text-terminal-green">SI TA BËSH?</span>
         </div>
         <div className="text-xs leading-5 text-terminal-text/85">
           {analysis.howAl.split(/(?=\d\.\s)/).filter(Boolean).map((step, i) => (

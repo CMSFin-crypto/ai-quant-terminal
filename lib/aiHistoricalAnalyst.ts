@@ -14,10 +14,10 @@ export type AnalystVerdict = {
   reasons: string[];
   risks: string[];
   checklist: string[];
-  // Albanian-language recommendation fields
-  actionAl: string;        // "Çka me bo" - action in Albanian
+  // Albanian-language recommendation fields (standard literary Albanian)
+  actionAl: string;        // "Çfarë të bësh" - action in Albanian
   whyAl: string;          // "Pse" - why do this, in Albanian
-  howAl: string;          // "Si ta bosh" - how to execute, in Albanian
+  howAl: string;          // "Si ta bësh" - how to execute, in Albanian
   riskAl: string;         // Risk summary in Albanian
 };
 
@@ -147,39 +147,39 @@ export function analyzeHistorically(option: TerminalOption): AnalystVerdict {
     `${option.symbol} is classified as ${stance.toLowerCase()} with ${confidence}/100 confidence. ` +
     `The model favors ${action} because historical trend, IV/HV, drawdown, macro pressure, and options edge are aligned at this level.`;
 
-  // ─── Albanian-language recommendations ─────────────────────────────
+  // ─── Rekomandime në shqipen standarde letrare ─────────────────────────
   const actionAlMap: Record<AnalystVerdict["action"], string> = {
-    "BUY CALL": "BLEJ CALL — Pritje që çmimi i aksionit të rritet. Kur blen Call, fiton nëse aksioni ngrihet mbi Strike + Premium deri në expiry.",
-    "SELL CALL": "SHIT CALL (Covered Call) — Pritje që çmimi të qëndrojë i qetë apo të bjerë. Kur shet Call (kurse i ke aksionet), mbash premium-in edhe nëse aksioni nuk lëviz.",
-    "BUY PUT": "BLEJ PUT — Pritje që çmimi i aksionit të bjerë. Kur blen Put, fiton nëse aksioni bie nën Strike - Premium deri në expiry.",
-    "SELL PUT": "SHIT PUT (Cash-Secured Put) — Pritje që çmimi të qëndrojë i qetë apo të rritet. Kur shet Put, mbash premium-in nëse aksioni qëndron mbi Strike. Nëse bie nën Strike, duhet të blesh aksionin me çmim Strike.",
-    "WATCH": "PRIJ & VËZHGO — Kushtet nuk janë ende të qarta për hyrje. Prisni derisa sinjali të forcohet apo IV të bjerë për një hyrje më të lirë.",
-    "AVOID": "SHMANG — Cilësia e të dhënave është shumë e ulët ose rreziku është i lartë. Mos u hy në tregti me këtë stok derisa kushtet të përmirësohen."
+    "BUY CALL": "BLEJNI CALL — Pritet që çmimi i aksionit të rritet. Kur blini Call, fitoni nëse aksioni ngrihet mbi Strike + Premium deri në skadim.",
+    "SELL CALL": "SHISNI CALL (Covered Call) — Pritet që çmimi të qëndrojë i qetë ose të bjerë. Kur shisni Call (kurse i keni aksionet), mbani premium-in edhe nëse aksioni nuk lëviz.",
+    "BUY PUT": "BLEJNI PUT — Pritet që çmimi i aksionit të bjerë. Kur blini Put, fitoni nëse aksioni bie nën Strike - Premium deri në skadim.",
+    "SELL PUT": "SHISNI PUT (Cash-Secured Put) — Pritet që çmimi të qëndrojë i qetë ose të rritet. Kur shisni Put, mbani premium-in nëse aksioni qëndron mbi Strike. Nëse bie nën Strike, duhet të blini aksionin me çmim Strike.",
+    "WATCH": "PRITNI DHE VËZHGONI — Kushtet nuk janë ende të qarta për hyrje. Prisni derisa sinjali të forcohet ose IV të bjerë për një hyrje më të lirë.",
+    "AVOID": "SHMANGNI — Cilësia e të dhënave është shumë e ulët ose rreziku është i lartë. Mos hyni në tregti me këtë stok derisa kushtet të përmirësohen."
   };
 
   const whyAlMap: Record<AnalystVerdict["action"], string> = {
     "BUY CALL": `Modeli tregon se ${option.symbol} ka trend ${historical.trend === "Uptrend" ? "në rritje" : historical.trend === "Downtrend" ? "në rënie" : "të qetë"} me momentin 30-ditor në ${pct(historical.momentum30)}. IV është ${(option.iv < historical.realizedVol30 * 0.85 ? "e ulët (opsionet janë të lira)" : "në nivel normal")}, dhe sinjali i opsioneve është ${option.signal.score}/100. Kombinimi i këtyre faktorëve favorizon blerjen e Call.`,
-    "SELL CALL": `IV është e lartë (${pct(option.iv)}) krahasuar me HV (${pct(historical.realizedVol30)}), që do të thotë se opsionet janë të shtrenjta. Si shites i Call, përfiton nga premium-i i lartë dhe nga rënia e IV (IV crush). Nëse aksioni nuk lëviz shumë, mbash gjithë premium-in.`,
-    "BUY PUT": `Modeli tregon se ${option.symbol} ka trend ${historical.trend === "Downtrend" ? "në rënie" : "të dobët"} me momentin në ${pct(historical.momentum30)}. IV është ${(option.iv < historical.realizedVol30 * 0.85 ? "e ulët — opsionet janë të lira, kohë e mirë për t'u blerë" : "në nivel normal")}. Rreziku makro është ${macro.riskScore}/100, që shton mundësinë e lëvizjeve në ulje.`,
-    "SELL PUT": `IV është e lartë (${pct(option.iv)}) krahasuar me HV (${pct(historical.realizedVol30)}). Si shites i Put, mbash premium-in nëse aksioni qëndron mbi Strike. Nëse bie nën Strike, e blen aksionin me çmim të zvogëluar (me zbritje nga premium-i). Kjo është strategji që përdoret kur je neutral-bullish.`,
-    "WATCH": `Sinjali është ${option.signal.score}/100 (mesatar) dhe IV është ${pct(option.iv)}. Trend është ${historical.trend}. Nuk ka konfirmim të mjaftueshëm për hyrje tani. Prisni derisa: (1) Score të kalojë 65+, (2) IV të bjerë nën HV, ose (3) Trend të forcohet me volume më të lartë.`,
-    "AVOID": `Cilësia e të dhënave është ${option.dataQuality}/100 — shumë e ulët për vendime. ${option.dataSource === "synthetic-options" ? "Opsionet janë sintetike, jo nga tregu real." : "Rreziku makro është shumë i lartë."} Mos rreziko kapital derisa kushtet të përmirësohen.`
+    "SELL CALL": `IV është e lartë (${pct(option.iv)}) krahasuar me HV (${pct(historical.realizedVol30)}), çka do të thotë se opsionet janë të shtrenjta. Si shitës i Call, përfitoni nga premium-i i lartë dhe nga rënia e IV (IV crush). Nëse aksioni nuk lëviz shumë, mbani gjithë premium-in.`,
+    "BUY PUT": `Modeli tregon se ${option.symbol} ka trend ${historical.trend === "Downtrend" ? "në rënie" : "të dobët"} me momentin në ${pct(historical.momentum30)}. IV është ${(option.iv < historical.realizedVol30 * 0.85 ? "e ulët — opsionet janë të lira, kohë e mirë për t'u blerë" : "në nivel normal")}. Rreziku makro është ${macro.riskScore}/100, çka shton mundësinë e lëvizjeve në ulje.`,
+    "SELL PUT": `IV është e lartë (${pct(option.iv)}) krahasuar me HV (${pct(historical.realizedVol30)}). Si shitës i Put, mbani premium-in nëse aksioni qëndron mbi Strike. Nëse bie nën Strike, e blini aksionin me çmim të zvogëluar (me zbritje nga premium-i). Kjo është strategji që përdoret kur jeni neutral-bullish.`,
+    "WATCH": `Sinjali është ${option.signal.score}/100 (mesatar) dhe IV është ${pct(option.iv)}. Trendi është ${historical.trend}. Nuk ka konfirmim të mjaftueshëm për hyrje tani. Prisni derisa: (1) Score të kalojë 65+, (2) IV të bjerë nën HV, ose (3) Trendi të forcohet me volum më të lartë.`,
+    "AVOID": `Cilësia e të dhënave është ${option.dataQuality}/100 — shumë e ulët për vendime. ${option.dataSource === "synthetic-options" ? "Opsionet janë sintetike, jo nga tregu real." : "Rreziku makro është shumë i lartë."} Mos rrezikoni kapital derisa kushtet të përmirësohen.`
   };
 
   const howAlMap: Record<AnalystVerdict["action"], string> = {
-    "BUY CALL": `1. Zgjidh Call me Strike afër ATM (Delta 0.45-0.60) dhe DTE 30-45. 2. Hy me madhësi pozicioni ${macro.positionScale} (ose më vogël). 3. Vendos Stop Loss nëse çmimi bie 15-20% nga premium. 4. Merre fitimin nëse opsioni bëhet 2x premium-i. 5. Mbyll para expiry javën e fundit (gamma risk).`,
-    "SELL CALL": `1. Sigurohu që ke 100 aksione për covered call (ose përdor spread). 2. Zgjidh Strike OTM 5-10% mbi çmimin aktual. 3. DTE 30-45 për balance midis premium dhe rrezikut. 4. Mbyll nëse aksioni ngrihet afër Strike. 5. Mos shit Call lakuriq (naked) — rrezik i pakufizuar.`,
-    "BUY PUT": `1. Zgjidh Put me Strike afër ATM (Delta -0.45 deri -0.60) dhe DTE 30-45. 2. Hy me madhësi ${macro.positionScale}. 3. Vendos Stop Loss nëse çmimi nuk bie brenda 7-10 ditëve. 4. Merre fitimin nëse opsioni bëhet 2x premium-i. 5. Përdor Put Debit Spread për të ulur rrezikun.`,
-    "SELL PUT": `1. Sigurohu që ke kapital për 100 aksione (cash-secured). 2. Zgjidh Strike OTM 5-10% nën çmimin aktual. 3. DTE 30-45. 4. Nëse aksioni bie nën Strike, blen me zbritje. 5. Nëse aksioni qëndron mbi Strike, mbash premium-in (fitim 100%). 6. Përdor Put Credit Spread për rrezik të përcaktuar.`,
-    "WATCH": `1. Shtoje ${option.symbol} në listën e vëzhgimit. 2. Kontrollo çdo ditë ndryshimin e Score dhe IV. 3. Hyr vetëm kur Score > 65 dhe IV < HV. 4. Kontrollo earnings datën para se të hysh. 5. Mos u ndjeu FOMO — tregti më të mira vijnë me durim.`,
-    "AVOID": `1. Mos hy në asnjë pozicion me këtë stok tani. 2. Prisni derisa Data Quality të kalojë 60+. 3. Kontrollo përsëri pas ditës tjetër të tregtimit. 4. Nëse duhet ekspozim në sektor, kerko stok me Score më të lartë. 5. Konsidero stok të ngjashëm me cilësi më të mirë të dhënash.`
+    "BUY CALL": `1. Zgjidhni Call me Strike afër ATM (Delta 0.45-0.60) dhe DTE 30-45. 2. Hyni me madhësi pozicioni ${macro.positionScale} (ose më të vogël). 3. Vendosni Stop Loss nëse çmimi bie 15-20% nga premium. 4. Merreni fitimin nëse opsioni bëhet 2x premium-i. 5. Mbyllni para skadimit javën e fundit (rrezik gamma).`,
+    "SELL CALL": `1. Sigurohuni që keni 100 aksione për covered call (ose përdorni spread). 2. Zgjidhni Strike OTM 5-10% mbi çmimin aktual. 3. DTE 30-45 për ekuilibër midis premium dhe rrezikut. 4. Mbyllni nëse aksioni ngrihet afër Strike. 5. Mos i shisni Call lakuriq (naked) — rrezik i pakufizuar.`,
+    "BUY PUT": `1. Zgjidhni Put me Strike afër ATM (Delta -0.45 deri -0.60) dhe DTE 30-45. 2. Hyni me madhësi ${macro.positionScale}. 3. Vendosni Stop Loss nëse çmimi nuk bie brenda 7-10 ditëve. 4. Merreni fitimin nëse opsioni bëhet 2x premium-i. 5. Përdorni Put Debit Spread për të ulur rrezikun.`,
+    "SELL PUT": `1. Sigurohuni që keni kapital për 100 aksione (cash-secured). 2. Zgjidhni Strike OTM 5-10% nën çmimin aktual. 3. DTE 30-45. 4. Nëse aksioni bie nën Strike, blini me zbritje. 5. Nëse aksioni qëndron mbi Strike, mbani premium-in (fitim 100%). 6. Përdorni Put Credit Spread për rrezik të përcaktuar.`,
+    "WATCH": `1. Shtojeni ${option.symbol} në listën e vëzhgimit. 2. Kontrolloni çdo ditë ndryshimin e Score dhe IV. 3. Hyni vetëm kur Score > 65 dhe IV < HV. 4. Kontrolloni datën e earnings para se të hyni. 5. Mos u nënshtrohuni FOMO-së — tregti më të mira vijnë me durim.`,
+    "AVOID": `1. Mos hyni në asnjë pozicion me këtë stok tani. 2. Prisni derisa Data Quality të kalojë 60+. 3. Kontrolloni përsëri pas ditës tjetër të tregtimit. 4. Nëse duhet ekspozim në sektor, kërkoni stok me Score më të lartë. 5. Konsideroni stok të ngjashëm me cilësi më të mirë të dhënash.`
   };
 
   const riskAlMap: Record<AnalystVerdict["riskLabel"], string> = {
-    "Low": `Rrezik i ulët — trend është i qartë, IV është e arsyeshme, dhe cilësia e të dhënave është e mirë. Megjithatë, gjithmonë përdor Stop Loss dhe mos rreziko më shumë se 2-3% të portofolit.`,
-    "Medium": `Rrezik mesatar — IV është relativisht e lartë (${pct(option.iv)}) ose max drawdown është ${pct(historical.maxDrawdown)}. Përdor pozicione më të vogla, spread-e për rrezik të përcaktuar, dhe kontrollo earnings datën.`,
-    "High": `Rrezik i lartë — IV është shumë e lartë (${pct(option.iv)}), macro risk është ${macro.riskScore}/100, ose je duke shitur opsione lakuriq. PËRDOR VETËM SPREAD-E ME RREZIK TË PËRCAKTUAR. Mos shit lakuriq.`,
-    "Very High": `RREZIK SHUMË I LARTË — cilësia e të dhënave është ${option.dataQuality}/100, që do të thotë se të gjitha metrikat janë të pasakta ose sintetike. MOS TREGTO me këtë stok me para reale. Përdor vetëm për demonstrim.`
+    "Low": `Rrezik i ulët — trendi është i qartë, IV është e arsyeshme, dhe cilësia e të dhënave është e mirë. Megjithatë, gjithmonë përdorni Stop Loss dhe mos rrezikoni më shumë se 2-3% të portofolit.`,
+    "Medium": `Rrezik mesatar — IV është relativisht e lartë (${pct(option.iv)}) ose maksimumi i rënies është ${pct(historical.maxDrawdown)}. Përdorni pozicione më të vogla, spread-e për rrezik të përcaktuar, dhe kontrolloni datën e earnings.`,
+    "High": `Rrezik i lartë — IV është shumë e lartë (${pct(option.iv)}), rreziku makro është ${macro.riskScore}/100, ose jeni duke shitur opsione lakuriq. PËRDORNI VETËM SPREAD-E ME RREZIK TË PËRCAKTUAR. Mos i shisni lakuriq.`,
+    "Very High": `RREZIK SHUMË I LARTË — cilësia e të dhënave është ${option.dataQuality}/100, çka do të thotë se të gjitha metrikat janë të pasakta ose sintetike. MOS TREGTONI me këtë stok me para reale. Përdorni vetëm për demonstrim.`
   };
 
   return {

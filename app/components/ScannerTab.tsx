@@ -292,7 +292,7 @@ function ScannerRowDesktop({
 }
 
 // ─── Albanian Recommendation Card ──────────────────────────────────────────
-// Tregon: Çka me bo, Pse, Si ta bosh, dhe Rrezikun — gjithçka në shqip
+// Tregon: Çfarë të bësh, Pse, Si ta bësh, dhe Rrezikun — gjithçka në shqipen standarde
 
 function AlbanianRecommendationCard({
   analysis,
@@ -338,8 +338,8 @@ function AlbanianRecommendationCard({
       <div className={`mt-2 rounded border p-2.5 text-xs leading-5 ${actionBg}`}>
         <div className="flex items-center gap-2 mb-1.5">
           {actionIcon}
-          <span className={`font-bold ${actionColor}`}>ÇKA ME BO: {analysis.action}</span>
-          <span className="text-terminal-muted ml-auto">Confidence: {analysis.confidence}%</span>
+          <span className={`font-bold ${actionColor}`}>ÇFARË TË BËSH: {analysis.action}</span>
+          <span className="text-terminal-muted ml-auto">Besimi: {analysis.confidence}%</span>
         </div>
         <p className="text-terminal-text/90">{analysis.actionAl}</p>
         <p className="mt-1 text-terminal-text/80">{analysis.whyAl}</p>
@@ -353,7 +353,7 @@ function AlbanianRecommendationCard({
       <div className={`rounded border p-3.5 ${actionBg}`}>
         <div className="flex items-center gap-2.5 mb-2">
           {actionIcon}
-          <span className={`text-sm font-bold ${actionColor}`}>ÇKA ME BO: {analysis.action}</span>
+          <span className={`text-sm font-bold ${actionColor}`}>ÇFARË TË BËSH: {analysis.action}</span>
           <span className="ml-auto text-xs text-terminal-muted bg-black/30 px-2 py-0.5 rounded">
             Besimi: {analysis.confidence}%
           </span>
@@ -365,7 +365,7 @@ function AlbanianRecommendationCard({
       <div className="rounded border border-terminal-cyan/30 bg-terminal-cyan/[0.05] p-3.5">
         <div className="flex items-center gap-2 mb-2">
           <Lightbulb size={16} className="text-terminal-cyan" />
-          <span className="text-sm font-bold text-terminal-cyan">PSE ME E BO KËTË?</span>
+          <span className="text-sm font-bold text-terminal-cyan">PSE TA BËSH KËTË?</span>
         </div>
         <p className="text-xs sm:text-sm leading-6 text-terminal-text/90">{analysis.whyAl}</p>
       </div>
@@ -374,7 +374,7 @@ function AlbanianRecommendationCard({
       <div className="rounded border border-terminal-green/30 bg-terminal-green/[0.05] p-3.5">
         <div className="flex items-center gap-2 mb-2">
           <Crosshair size={16} className="text-terminal-green" />
-          <span className="text-sm font-bold text-terminal-green">SI TA BOSH (Hapat)</span>
+          <span className="text-sm font-bold text-terminal-green">SI TA BËSH (Hapat)</span>
         </div>
         <div className="text-xs sm:text-sm leading-6 text-terminal-text/90">
           {analysis.howAl.split(/(?=\d\.\s)/).filter(Boolean).map((step, i) => (
