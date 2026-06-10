@@ -182,6 +182,27 @@ export const METRICS: Record<string, MetricDef> = {
     desc: "Çmimi i paracaktuar në të cilin mund të ushtrohet opsioni. Për Call, ju jep të drejtën të blini aksionin me çmimin Strike. Për Put, ju jep të drejtën të shisni aksionin me çmimin Strike.",
     use: "Krahasoni Strike me çmimin aktual (Undl) për të përcaktuar moneyness: nëse Undl > Strike për Call → ITM; nëse Undl < Strike për Call → OTM. Strike afër Undl = ATM opsion.",
     tip: "Zgjidhni Strike ATM (afër çmimit aktual) për ekuilibër midis kostos dhe probabilitetit. Strike OTM janë më të lira por me probabilitet më të ulët. Strike ITM janë më të shtrenjta por me probabilitet më të lartë."
+  },
+  ATM: {
+    term: "ATM",
+    full: "At The Money",
+    desc: "Opsioni është At The Money kur çmimi i aksionit (Undl) është afër ose i barabartë me çmimin Strike. Kjo do të thotë se Strike dhe çmimi aktual të aksionit janë pothuajse të njëjtë.",
+    use: "Opsionet ATM kanë Delta rreth 0.50, duke treguar rreth 50% probabilitet që opsioni të përfundojë me fitim në skadim. Ato ofrojnë ekuilibër optimal midis kostos dhe potencialit të lëvizjes.",
+    tip: "ATM opsionet kanë Extrinsic Value më të lartë dhe Gamma më të madhe. Janë ideale kur pritni lëvizje të mëdha por nuk jeni të sigurt për drejtimin. Përfitoni më shumë nga rritja e volatilitetit."
+  },
+  ITM: {
+    term: "ITM",
+    full: "In The Money",
+    desc: "Opsioni është In The Money kur ka vlerë të brendshme (Intrinsic Value). Për Call: Undl > Strike. Për Put: Undl < Strike. Opsioni ITM do të kishte fitim nëse ushtrohej tani.",
+    use: "Opsionet ITM kanë Delta mbi 0.50, pra reagojnë më shumë ndaj lëvizjeve të aksionit. Janë më të shtrenjta por me probabilitet më të lartë fitimi. Kostoja përfshin Intrinsic + Extrinsic Value.",
+    tip: "ITM opsionet kanë rrezik më të ulët por kosto më të lartë. Zgjidhni ITM nëse doni ekspozim më të ngjashëm me aksionin (Delta e lartë) ose nëse doni të ulni rrezikun e kohës (theta decay)."
+  },
+  OTM: {
+    term: "OTM",
+    full: "Out of The Money",
+    desc: "Opsioni është Out of The Money kur nuk ka vlerë të brendshme. Për Call: Undl < Strike. Për Put: Undl > Strike. Opsioni OTM nuk do të kishte fitim nëse ushtrohej tani — e gjithë premium është Extrinsic Value.",
+    use: "Opsionet OTM janë më të lira por me probabilitet më të ulët fitimi (Delta nën 0.50). Shitësit e opsioneve preferojnë OTM sepse kanë probabilitet më të lartë që të skadojnë pa vlerë.",
+    tip: "OTM opsionet kanë levë më të madhe financiare — mund të fitoni shumë me investim të vogël, por mund të humbni gjithë premium nëse aksioni nuk lëviz mjaftueshëm. Përdorni vetëm me madhësi pozicioni të kontrolluar."
   }
 };
 
