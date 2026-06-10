@@ -1,3 +1,5 @@
+import { getRefPrice } from "@/lib/sectors";
+
 export type PriceBar = {
   t: number;
   c: number;
@@ -103,9 +105,13 @@ export function calculateHistoricalMetrics(bars: PriceBar[]): HistoricalMetrics 
 }
 
 export function generateMockHistory(symbol: string, days = 252): PriceBar[] {
+  // Use reference prices to generate realistic mock data
+  const refPrice = getRefPrice(symbol);
+
   const seed = symbol.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
   const bars: PriceBar[] = [];
-  let price = 60 + (seed % 260);
+  // Use reference price if available, otherwise fall back to hash-based price
+  let price = refPrice || (60 + (seed % 260));
   let state = seed || 1;
   const annualVol = 0.24 + (seed % 28) / 100;
   const drift = ((seed % 11) - 4) / 100_000;
@@ -121,14 +127,38 @@ export function generateMockHistory(symbol: string, days = 252): PriceBar[] {
     return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   };
 
+  // Start from ~15% lower than ref price and drift upward to current level
+  // This creates a realistic-looking price path ending near the reference price
+  const startPrice = price * 0.87;
+  price = startPrice;
+
   for (let index = days; index >= 0; index--) {
     const dt = 1 / 252;
+    // Add slight upward drift to reach refPrice by the end
+    const driftToTarget = refPrice ? Math.log(price / (refPrice * 0.87)) / (days * dt) * 0.15 : 0;
     const shock = annualVol * Math.sqrt(dt) * normalShock();
-    price = Math.max(5, price * Math.exp((drift - 0.5 * annualVol ** 2) * dt + shock));
+    price = Math.max(5, price * Math.exp((drift + driftToTarget - 0.5 * annualVol ** 2) * dt + shock));
     bars.push({
       t: Date.now() - index * 86_400_000,
       c: Number(price.toFixed(2))
     });
+  }
+
+  // Snap the final price to the reference price (±2% random variation)
+  // This ensures the "current" price shown in the terminal is realistic
+  if (refPrice && bars.length > 0) {
+    const variation = 0.98 + (seed % 5) / 100; // 0.98 - 1.02
+    const finalPrice = Number((refPrice * variation).toFixed(2));
+    bars[bars.length - 1].c = finalPrice;
+    // Also adjust the last 5 bars to smooth the transition
+    const smoothBars = Math.min(5, bars.length);
+    for (let i = 1; i <= smoothBars; i++) {
+      const idx = bars.length - 1 - i;
+      if (idx >= 0) {
+        const weight = i / (smoothBars + 1);
+        bars[idx].c = Number((bars[idx].c * (1 - weight) + finalPrice * weight).toFixed(2));
+      }
+    }
   }
 
   return bars;

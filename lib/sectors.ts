@@ -14,7 +14,45 @@ export type Stock = {
     | "Defense"
     | "Auto"
     | "E-Commerce";
+  refPrice?: number;  // Approximate recent market price (fallback when APIs fail)
 };
+
+/**
+ * Reference prices — approximate mid-2026 market prices for all tracked stocks.
+ * Used as fallback when live quote APIs (Yahoo, Finnhub, Polygon) are unavailable.
+ * These should be updated periodically to stay within ~10% of reality.
+ */
+export const REF_PRICES: Record<string, number> = {
+  // AI Technology
+  MSFT: 460, GOOGL: 178, META: 640, PLTR: 125, SNOW: 175, AI: 28, DDOG: 145, ANET: 105,
+  // Semiconductors
+  AMD: 125, NVDA: 135, AVGO: 240, TSM: 195, MU: 115, SNDK: 42, QCOM: 160, ASML: 760, MRVL: 72, LRCX: 880,
+  // Tech
+  AAPL: 230, CRM: 275, ORCL: 185, ADBE: 440, NOW: 920,
+  // Retail
+  WMT: 95, COST: 1020, TGT: 115, HD: 375, LOW: 245,
+  // Consumer
+  KO: 64, MCD: 310,
+  // Industrials
+  CAT: 365, VRT: 115, GLW: 48,
+  // Finance
+  JPM: 260, BAC: 44, GS: 580, MS: 125, C: 62,
+  // Energy
+  XOM: 108, CVX: 160, COP: 108, SLB: 42, OXY: 48, DVN: 32, TPL: 620, NEE: 78, GEV: 420,
+  // Healthcare
+  JNJ: 162, PFE: 26, MRK: 82, UNH: 315, ABBV: 195, LLY: 960, BMY: 48, MRNA: 32,
+  // Defense
+  LMT: 475, RTX: 135, NOC: 470, GD: 275, BA: 195, AXON: 580,
+  // Auto
+  TSLA: 345, GM: 50, F: 11,
+  // E-Commerce
+  AMZN: 205, SHOP: 78, MELI: 2450,
+};
+
+/** Get reference price for a symbol, or undefined if not tracked */
+export function getRefPrice(symbol: string): number | undefined {
+  return REF_PRICES[symbol.toUpperCase()];
+}
 
 export const STOCKS: Stock[] = [
   { symbol: "MSFT", name: "Microsoft", sector: "AI Technology" },

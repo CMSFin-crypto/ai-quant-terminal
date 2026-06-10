@@ -4,6 +4,7 @@ import { calculateHistoricalMetrics, generateMockHistory } from "@/lib/historica
 import { monteCarlo } from "@/lib/montecarlo";
 import { signalEngine } from "@/lib/signalEngine";
 import type { Stock } from "@/lib/sectors";
+import { getRefPrice } from "@/lib/sectors";
 
 /**
  * Polygon option contract shape from the REST API.
@@ -154,20 +155,24 @@ function hashSymbol(symbol: string) {
   return hash >>> 0; // ensure unsigned
 }
 
-function resolveSpot(historical: HistoricalMetrics, quotePrice?: number) {
-  const historicalSpot = historical.spot || 100;
+function resolveSpot(historical: HistoricalMetrics, quotePrice?: number, symbol?: string) {
+  // Priority: 1) Live quote price → 2) Reference price → 3) Historical spot
+  const refPrice = symbol ? getRefPrice(symbol) : undefined;
+  const historicalSpot = historical.spot || refPrice || 100;
 
   if (!quotePrice || !Number.isFinite(quotePrice) || quotePrice <= 0) {
-    return historicalSpot;
+    // No live quote — prefer reference price over mock historical spot
+    return refPrice || historicalSpot;
   }
 
   // Trust the real quote price — it comes from live market data (Yahoo/Polygon).
   // The historical.spot may be from mock data and wildly different.
   // Only discard the quote if it's clearly garbage (ratio > 20 or < 0.05).
-  const ratio = quotePrice / Math.max(historicalSpot, 1);
+  const baseline = refPrice || historicalSpot;
+  const ratio = quotePrice / Math.max(baseline, 1);
 
   if (ratio > 20 || ratio < 0.05) {
-    return historicalSpot;
+    return refPrice || historicalSpot;
   }
 
   return quotePrice;
@@ -243,7 +248,7 @@ function mockOption(
 ): TerminalOption {
   const seed = hashSymbol(stock.symbol);
   const rawHistorical = historicalOverride || calculateHistoricalMetrics(generateMockHistory(stock.symbol));
-  const spot = resolveSpot(rawHistorical, quotePrice);
+  const spot = resolveSpot(rawHistorical, quotePrice, stock.symbol);
   const historical = alignHistoricalSpot(rawHistorical, spot);
   const type = chooseSyntheticType(historical);
   const strike = targetStrike(spot, type, seed);
@@ -332,7 +337,7 @@ export function normalizePolygonOption(
   const volume = Number(first?.day?.volume || fallback.volume);
   const openInterest = Number(first?.open_interest || fallback.openInterest);
   const apiSpot = Number(first?.underlying_asset?.price || 0) || undefined;
-  const spot = resolveSpot(historical, quotePrice || apiSpot);
+  const spot = resolveSpot(historical, quotePrice || apiSpot, stock.symbol);
   const alignedHistorical = alignHistoricalSpot(historical, spot);
 
   // Compute actual DTE from contract expiration date
@@ -449,7 +454,7 @@ export function pickOptionContract(
 ) {
   if (!Array.isArray(contracts) || !contracts.length) return null;
 
-  const spot = resolveSpot(historical, quotePrice);
+  const spot = resolveSpot(historical, quotePrice, undefined);
   const preferredType = chooseSyntheticType(alignHistoricalSpot(historical, spot));
   const now = Date.now();
 
