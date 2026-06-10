@@ -121,9 +121,9 @@ export function ScannerTab({
                   </div>
                 </div>
                 <div className="mt-2 grid grid-cols-3 gap-1.5">
-                  <MiniStat label="Undl" value={stockMoney.format(item.underlyingPrice)} />
-                  <MiniStat label="Mark" value={`$${item.fairValue.toFixed(2)}`} />
-                  <MiniStat label="IV" value={`${(item.iv * 100).toFixed(1)}%`} />
+                  <MiniStat label="Undl" value={stockMoney.format(item.underlyingPrice)} symbol={item.symbol} />
+                  <MiniStat label="Mark" value={`$${item.fairValue.toFixed(2)}`} symbol={item.symbol} />
+                  <MiniStat label="IV" value={`${(item.iv * 100).toFixed(1)}%`} symbol={item.symbol} />
                 </div>
               </div>
 
@@ -131,18 +131,18 @@ export function ScannerTab({
               {isSelected && selectedOption && (
                 <div className="mt-1 rounded border border-terminal-cyan/30 bg-terminal-cyan/[0.03] p-3">
                   <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                    <MiniStat label="Undl" value={stockMoney.format(selectedOption.underlyingPrice)} />
-                    <MiniStat label="Strike" value={`$${selectedOption.strike}`} />
-                    <MiniStat label="Right" value={`${selectedOption.type.toUpperCase()} · ${selectedOption.moneyness}`} />
-                    <MiniStat label="Mark" value={`$${selectedOption.fairValue.toFixed(2)}`} />
-                    <MiniStat label="Intrinsic" value={`$${selectedOption.intrinsicValue.toFixed(2)}`} />
-                    <MiniStat label="Extrinsic" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} />
-                    <MiniStat label="Last" value={`$${selectedOption.price.toFixed(2)}`} />
-                    <MiniStat label="POP" value={`${selectedOption.profitProbability.toFixed(1)}%`} />
-                    <MiniStat label="DTE" value={`${selectedOption.dte || 30}d`} />
-                    <MiniStat label="IV/HV" value={`${(selectedOption.iv * 100).toFixed(1)} / ${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}`} />
-                    <MiniStat label="Vol/OI" value={`${selectedOption.volume.toLocaleString()}/${selectedOption.openInterest.toLocaleString()}`} />
-                    <MiniStat label="Delta" value={selectedOption.delta.toFixed(2)} />
+                    <MiniStat label="Undl" value={stockMoney.format(selectedOption.underlyingPrice)} symbol={selectedOption.symbol} />
+                    <MiniStat label="Strike" value={`$${selectedOption.strike}`} symbol={selectedOption.symbol} />
+                    <MiniStat label="Right" value={`${selectedOption.type.toUpperCase()} · ${selectedOption.moneyness}`} symbol={selectedOption.symbol} />
+                    <MiniStat label="Mark" value={`$${selectedOption.fairValue.toFixed(2)}`} symbol={selectedOption.symbol} />
+                    <MiniStat label="Intrinsic" value={`$${selectedOption.intrinsicValue.toFixed(2)}`} symbol={selectedOption.symbol} />
+                    <MiniStat label="Extrinsic" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} symbol={selectedOption.symbol} />
+                    <MiniStat label="Last" value={`$${selectedOption.price.toFixed(2)}`} symbol={selectedOption.symbol} />
+                    <MiniStat label="POP" value={`${selectedOption.profitProbability.toFixed(1)}%`} symbol={selectedOption.symbol} />
+                    <MiniStat label="DTE" value={`${selectedOption.dte || 30}d`} symbol={selectedOption.symbol} />
+                    <MiniStat label="IV/HV" value={`${(selectedOption.iv * 100).toFixed(1)} / ${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}`} symbol={selectedOption.symbol} />
+                    <MiniStat label="Vol/OI" value={`${selectedOption.volume.toLocaleString()}/${selectedOption.openInterest.toLocaleString()}`} symbol={selectedOption.symbol} />
+                    <MiniStat label="Delta" value={selectedOption.delta.toFixed(2)} symbol={selectedOption.symbol} />
                   </div>
 
                   {/* ── SQARIMI: Çfarë të bësh, Pse, Si, Rreziku ── */}
@@ -243,33 +243,33 @@ function ScannerRowDesktop({
 
               {/* Price & Value */}
               <div className="mt-3 grid grid-cols-3 gap-2 lg:grid-cols-4">
-                <MiniStat label="Undl" value={stockMoney.format(selectedOption.underlyingPrice)} />
-                <MiniStat label="Mark" value={`$${selectedOption.fairValue.toFixed(2)}`} />
-                <MiniStat label="Last" value={`$${selectedOption.price.toFixed(2)}`} />
-                <MiniStat label={selectedOption.moneyness} value={`${selectedOption.moneyness === "ITM" ? "In" : selectedOption.moneyness === "OTM" ? "Out" : "At"} of Money`} />
+                <MiniStat label="Undl" value={stockMoney.format(selectedOption.underlyingPrice)} symbol={selectedOption.symbol} />
+                <MiniStat label="Mark" value={`$${selectedOption.fairValue.toFixed(2)}`} symbol={selectedOption.symbol} />
+                <MiniStat label="Last" value={`$${selectedOption.price.toFixed(2)}`} symbol={selectedOption.symbol} />
+                <MiniStat label={selectedOption.moneyness} value={`${selectedOption.moneyness === "ITM" ? "In" : selectedOption.moneyness === "OTM" ? "Out" : "At"} of Money`} symbol={selectedOption.symbol} />
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2 lg:grid-cols-4">
-                <MiniStat label="Intrinsic" value={`$${selectedOption.intrinsicValue.toFixed(2)}`} />
-                <MiniStat label="Extrinsic" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} />
-                <MiniStat label="Break Even" value={`$${breakEven.toFixed(2)}`} />
-                <MiniStat label="POP" value={`${selectedOption.profitProbability.toFixed(1)}%`} />
+                <MiniStat label="Intrinsic" value={`$${selectedOption.intrinsicValue.toFixed(2)}`} symbol={selectedOption.symbol} />
+                <MiniStat label="Extrinsic" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} symbol={selectedOption.symbol} />
+                <MiniStat label="Break Even" value={`$${breakEven.toFixed(2)}`} symbol={selectedOption.symbol} />
+                <MiniStat label="POP" value={`${selectedOption.profitProbability.toFixed(1)}%`} symbol={selectedOption.symbol} />
               </div>
 
               {/* Vol & Data */}
               <div className="mt-2 grid grid-cols-3 gap-2 lg:grid-cols-4">
-                <MiniStat label="IV" value={`${(selectedOption.iv * 100).toFixed(1)}%`} />
-                <MiniStat label="HV 30D" value={`${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}%`} />
-                <MiniStat label="IV/HV" value={`${(selectedOption.iv * 100).toFixed(1)} / ${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}`} />
-                <MiniStat label="DTE" value={`${selectedOption.dte || 30}d`} />
+                <MiniStat label="IV" value={`${(selectedOption.iv * 100).toFixed(1)}%`} symbol={selectedOption.symbol} />
+                <MiniStat label="HV 30D" value={`${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}%`} symbol={selectedOption.symbol} />
+                <MiniStat label="IV/HV" value={`${(selectedOption.iv * 100).toFixed(1)} / ${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}`} symbol={selectedOption.symbol} />
+                <MiniStat label="DTE" value={`${selectedOption.dte || 30}d`} symbol={selectedOption.symbol} />
               </div>
 
               {/* Greeks row */}
               <div className="mt-2 grid grid-cols-5 gap-2">
-                <MiniStat label="Delta" value={selectedOption.delta.toFixed(2)} />
-                <MiniStat label="Gamma" value={selectedOption.gamma.toFixed(3)} />
-                <MiniStat label="Theta" value={selectedOption.theta.toFixed(3)} />
-                <MiniStat label="Vega" value={selectedOption.vega.toFixed(4)} />
-                <MiniStat label="Rho" value={selectedOption.rho.toFixed(4)} />
+                <MiniStat label="Delta" value={selectedOption.delta.toFixed(2)} symbol={selectedOption.symbol} />
+                <MiniStat label="Gamma" value={selectedOption.gamma.toFixed(3)} symbol={selectedOption.symbol} />
+                <MiniStat label="Theta" value={selectedOption.theta.toFixed(3)} symbol={selectedOption.symbol} />
+                <MiniStat label="Vega" value={selectedOption.vega.toFixed(4)} symbol={selectedOption.symbol} />
+                <MiniStat label="Rho" value={selectedOption.rho.toFixed(4)} symbol={selectedOption.symbol} />
               </div>
 
               {/* ── SQARIMI: Çfarë të bësh, Pse, Si, Rreziku ── */}

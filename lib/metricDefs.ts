@@ -9,7 +9,7 @@
 export interface MetricDef {
   term: string;       // IBKR term shown
   full: string;       // Full name
-  desc: string;       // What it measures
+  desc: string;       // What it measures (use {sym} placeholder for current stock symbol)
   use: string;        // How traders use it
   tip: string;        // Practical tip
 }
@@ -25,7 +25,7 @@ export const METRICS: Record<string, MetricDef> = {
   Undl: {
     term: "Undl",
     full: "Underlying Price",
-    desc: "Çmimi aktual i aksionit në treg. P.sh. nëse AMD tregtohet në $465.62, ky është çmimi Underlying.",
+    desc: "Çmimi aktual i aksionit në treg. P.sh. nëse {sym} tregtohet në $465.62, ky është çmimi Underlying.",
     use: "Krahasoni me Strike për të përcaktuar nëse opsioni është ITM, ATM, ose OTM. Dallimi Undl - Strike = Intrinsic Value për Call.",
     tip: "Nëse Undl > Strike për Call → opsioni është ITM (ka vlerë të brendshme)."
   },
@@ -69,7 +69,7 @@ export const METRICS: Record<string, MetricDef> = {
     full: "Break-Even Price",
     desc: "Çmimi që aksioni duhet të arrijë në skadim që të mbuloni kostën e premium-s. Call: Strike + Premium. Put: Strike - Premium.",
     use: "Tregon nivelin minimal që aksioni duhet të lëvizë që të jeni në fitim. Sa më larg Break Even, aq më e vështirë të fitoni.",
-    tip: "Për BUY CALL me Strike $465 dhe Premium $3.90, Break Even = $468.90. Aksioni duhet të ngrihet mbi $468.90 që të fitoni."
+    tip: "Për BUY CALL me Strike $465 dhe Premium $3.90, Break Even = $468.90. Aksioni duhet të ngrihet mbi këtë çmim që të fitoni."
   },
   IV: {
     term: "IV",
@@ -206,9 +206,16 @@ export const METRICS: Record<string, MetricDef> = {
   }
 };
 
-/** Get metric definition, with fallback for unknown keys */
-export function getMetricDef(key: string): MetricDef | undefined {
-  return METRICS[key];
+/** Get metric definition, replacing {sym} placeholder with the actual stock symbol */
+export function getMetricDef(key: string, symbol?: string): MetricDef | undefined {
+  const def = METRICS[key];
+  if (!def || !symbol) return def;
+  return {
+    ...def,
+    desc: def.desc.replace(/\{sym\}/g, symbol),
+    use: def.use.replace(/\{sym\}/g, symbol),
+    tip: def.tip.replace(/\{sym\}/g, symbol),
+  };
 }
 
 /** All keys that have definitions */

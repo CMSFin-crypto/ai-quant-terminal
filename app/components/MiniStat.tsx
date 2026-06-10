@@ -4,12 +4,12 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { getMetricDef } from "@/lib/metricDefs";
 
-export function MiniStat({ label, value }: { label: string; value: string }) {
+export function MiniStat({ label, value, symbol }: { label: string; value: string; symbol?: string }) {
   const [showInfo, setShowInfo] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
-  const def = getMetricDef(label);
+  const def = getMetricDef(label, symbol);
 
   const updatePos = useCallback(() => {
     if (ref.current) {

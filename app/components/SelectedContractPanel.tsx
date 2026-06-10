@@ -14,6 +14,7 @@ interface SelectedContractPanelProps {
 }
 
 export function SelectedContractPanel({ selectedOption, selectedAnalysis }: SelectedContractPanelProps) {
+  const sym = selectedOption.symbol;
   // IBKR-style break-even: Strike + Premium for calls, Strike - Premium for puts
   const breakEven = selectedOption.type === "call"
     ? selectedOption.strike + selectedOption.price
@@ -44,45 +45,45 @@ export function SelectedContractPanel({ selectedOption, selectedAnalysis }: Sele
 
         {/* Price & Value — IBKR style */}
         <div className="mt-3 grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3">
-          <MiniStat label="Undl" value={stockMoney.format(selectedOption.underlyingPrice)} />
-          <MiniStat label="Mark" value={`$${selectedOption.fairValue.toFixed(2)}`} />
-          <MiniStat label="Last" value={`$${selectedOption.price.toFixed(2)}`} />
-          <MiniStat label="Intrinsic" value={`$${selectedOption.intrinsicValue.toFixed(2)}`} />
-          <MiniStat label="Extrinsic" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} />
-          <MiniStat label={selectedOption.moneyness} value={moneynessLabel} />
+          <MiniStat label="Undl" value={stockMoney.format(selectedOption.underlyingPrice)} symbol={sym} />
+          <MiniStat label="Mark" value={`$${selectedOption.fairValue.toFixed(2)}`} symbol={sym} />
+          <MiniStat label="Last" value={`$${selectedOption.price.toFixed(2)}`} symbol={sym} />
+          <MiniStat label="Intrinsic" value={`$${selectedOption.intrinsicValue.toFixed(2)}`} symbol={sym} />
+          <MiniStat label="Extrinsic" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} symbol={sym} />
+          <MiniStat label={selectedOption.moneyness} value={moneynessLabel} symbol={sym} />
         </div>
 
         {/* Key metrics — IBKR terminology */}
         <div className="mt-2 grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3">
-          <MiniStat label="Break Even" value={`$${breakEven.toFixed(2)}`} />
-          <MiniStat label="POP" value={`${selectedOption.profitProbability.toFixed(1)}%`} />
-          <MiniStat label="DTE" value={`${selectedOption.dte || 30}d`} />
-          <MiniStat label="IV" value={`${(selectedOption.iv * 100).toFixed(1)}%`} />
-          <MiniStat label="HV 30D" value={`${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}%`} />
-          <MiniStat label="IV/HV" value={`${(selectedOption.iv * 100).toFixed(1)} / ${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}`} />
+          <MiniStat label="Break Even" value={`$${breakEven.toFixed(2)}`} symbol={sym} />
+          <MiniStat label="POP" value={`${selectedOption.profitProbability.toFixed(1)}%`} symbol={sym} />
+          <MiniStat label="DTE" value={`${selectedOption.dte || 30}d`} symbol={sym} />
+          <MiniStat label="IV" value={`${(selectedOption.iv * 100).toFixed(1)}%`} symbol={sym} />
+          <MiniStat label="HV 30D" value={`${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}%`} symbol={sym} />
+          <MiniStat label="IV/HV" value={`${(selectedOption.iv * 100).toFixed(1)} / ${(selectedOption.historical.realizedVol30 * 100).toFixed(1)}`} symbol={sym} />
         </div>
 
         {/* Greeks — IBKR style */}
         <div className="mt-2 grid grid-cols-3 gap-1.5 sm:gap-2 sm:grid-cols-5">
-          <MiniStat label="Delta" value={selectedOption.delta.toFixed(2)} />
-          <MiniStat label="Gamma" value={selectedOption.gamma.toFixed(3)} />
-          <MiniStat label="Theta" value={selectedOption.theta.toFixed(3)} />
-          <MiniStat label="Vega" value={selectedOption.vega.toFixed(4)} />
-          <MiniStat label="Rho" value={selectedOption.rho.toFixed(4)} />
+          <MiniStat label="Delta" value={selectedOption.delta.toFixed(2)} symbol={sym} />
+          <MiniStat label="Gamma" value={selectedOption.gamma.toFixed(3)} symbol={sym} />
+          <MiniStat label="Theta" value={selectedOption.theta.toFixed(3)} symbol={sym} />
+          <MiniStat label="Vega" value={selectedOption.vega.toFixed(4)} symbol={sym} />
+          <MiniStat label="Rho" value={selectedOption.rho.toFixed(4)} symbol={sym} />
         </div>
 
         {/* Volume & OI */}
         <div className="mt-2 grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3">
-          <MiniStat label="Vol" value={selectedOption.volume.toLocaleString()} />
-          <MiniStat label="OI" value={selectedOption.openInterest.toLocaleString()} />
-          <MiniStat label="Vol/OI" value={`${(selectedOption.volume / Math.max(selectedOption.openInterest, 1)).toFixed(2)}`} />
+          <MiniStat label="Vol" value={selectedOption.volume.toLocaleString()} symbol={sym} />
+          <MiniStat label="OI" value={selectedOption.openInterest.toLocaleString()} symbol={sym} />
+          <MiniStat label="Vol/OI" value={`${(selectedOption.volume / Math.max(selectedOption.openInterest, 1)).toFixed(2)}`} symbol={sym} />
         </div>
 
         {/* Data source */}
         <div className="mt-2 grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3">
-          <MiniStat label="Feed" value={selectedOption.dataSource === "real-options" ? "Live" : "Synthetic"} />
-          <MiniStat label="Hist" value={formatSource(selectedOption.historySource)} />
-          <MiniStat label="Quality" value={`${selectedOption.dataQuality}/100`} />
+          <MiniStat label="Feed" value={selectedOption.dataSource === "real-options" ? "Live" : "Synthetic"} symbol={sym} />
+          <MiniStat label="Hist" value={formatSource(selectedOption.historySource)} symbol={sym} />
+          <MiniStat label="Quality" value={`${selectedOption.dataQuality}/100`} symbol={sym} />
         </div>
 
         {/* ── SQARIMI: Çfarë të bësh, Pse, Si, Rreziku ── */}
