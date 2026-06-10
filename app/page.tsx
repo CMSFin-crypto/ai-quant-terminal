@@ -217,12 +217,15 @@ export default function Page() {
   }, [fetchAll]);
 
   useEffect(() => {
+    // Only auto-switch AFTER initial load is complete.
+    // During progressive loading (batches), NVDA may not be in data yet,
+    // and we don't want to fall back to data[0] (MSFT) prematurely.
+    if (status !== "LIVE" && status !== "SIM MODE") return;
     if (data.length && !data.some((item) => item.symbol === selected)) {
-      // Prefer NVDA as default, otherwise pick the first available stock
       const nvda = data.find((item) => item.symbol === "NVDA");
       setSelected(nvda ? nvda.symbol : data[0].symbol);
     }
-  }, [data, selected]);
+  }, [data, selected, status]);
 
   // --- Debounce refresh button (improvement #17) ---
   const handleRefresh = useCallback(() => {

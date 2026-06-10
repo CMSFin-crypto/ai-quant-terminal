@@ -74,7 +74,7 @@ export function MiniStat({ label, value }: { label: string; value: string }) {
           className={`text-[9px] sm:text-[10px] uppercase tracking-[0.10em] sm:tracking-[0.12em] ${
             def ? "text-terminal-cyan cursor-pointer hover:text-terminal-cyan/80" : "text-terminal-muted"
           } flex items-center gap-1`}
-          title={def ? `Klikoni për info rreth ${label}` : undefined}
+          /* No native title — popup opens only on explicit click */
         >
           {label}
           {def && <span className="text-[8px] opacity-50">ⓘ</span>}
