@@ -19,10 +19,15 @@ export function SelectedContractPanel({ selectedOption, selectedAnalysis }: Sele
     ? selectedOption.strike + selectedOption.price
     : selectedOption.strike - selectedOption.price;
 
-  // OTM%: how far out-of-the-money as percentage
-  const otmPct = selectedOption.type === "call"
-    ? Math.max((selectedOption.strike - selectedOption.underlyingPrice) / selectedOption.underlyingPrice * 100, 0)
-    : Math.max((selectedOption.underlyingPrice - selectedOption.strike) / selectedOption.underlyingPrice * 100, 0);
+  // Moneyness distance: how far ITM or OTM as percentage
+  const moneynessPct = selectedOption.type === "call"
+    ? ((selectedOption.underlyingPrice - selectedOption.strike) / selectedOption.strike * 100)
+    : ((selectedOption.strike - selectedOption.underlyingPrice) / selectedOption.strike * 100);
+  const moneynessLabel = Math.abs(moneynessPct) < 0.01
+    ? "0.0% ATM"
+    : moneynessPct > 0
+      ? `${moneynessPct.toFixed(1)}% ITM`
+      : `${Math.abs(moneynessPct).toFixed(1)}% OTM`;
 
   return (
     <Panel title="Contract Details" icon={<Gauge size={17} />}>
@@ -44,7 +49,7 @@ export function SelectedContractPanel({ selectedOption, selectedAnalysis }: Sele
           <MiniStat label="Last" value={`$${selectedOption.price.toFixed(2)}`} />
           <MiniStat label="Intrinsic" value={`$${selectedOption.intrinsicValue.toFixed(2)}`} />
           <MiniStat label="Extrinsic" value={`$${selectedOption.extrinsicValue.toFixed(2)}`} />
-          <MiniStat label={selectedOption.moneyness} value={`${otmPct.toFixed(1)}% ${selectedOption.moneyness === "ITM" ? "ITM" : selectedOption.moneyness === "OTM" ? "OTM" : "ATM"}`} />
+          <MiniStat label={selectedOption.moneyness} value={moneynessLabel} />
         </div>
 
         {/* Key metrics — IBKR terminology */}
