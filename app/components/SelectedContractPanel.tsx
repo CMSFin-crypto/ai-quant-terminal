@@ -67,6 +67,9 @@ export function SelectedContractPanel({ selectedOption, selectedAnalysis }: Sele
         {/* ── IV/HV STATUS BADGE — inline "Opsionet janë të shtrenjta/të lira" ── */}
         <IVHStatusBadge option={selectedOption} />
 
+        {/* ── AI RISK INSIGHTS — POP, R/R, breakeven, daily decay ── */}
+        <AIRiskInsightsCard option={selectedOption} />
+
         {/* ── VOL SKEW MINI-CARD — OTM put vs OTM call IV ── */}
         <VolSkewMiniCard option={selectedOption} />
 
@@ -107,6 +110,24 @@ export function SelectedContractPanel({ selectedOption, selectedAnalysis }: Sele
         {selectedOption.warnings.length > 0 && (
           <div className="mt-2 rounded border border-terminal-amber/40 bg-terminal-amber/10 p-2.5 sm:p-3 text-xs leading-5 text-terminal-amber">
             {selectedOption.warnings.join(" ")}
+          </div>
+        )}
+
+        {/* ── AI SIGNAL WARNINGS — gamma risk, IV crush, theta alarm ── */}
+        {selectedOption.signal.warnings && selectedOption.signal.warnings.length > 0 && (
+          <div className="mt-2 rounded border border-red-500/40 bg-red-500/[0.08] p-2.5 sm:p-3 text-xs leading-5 text-red-300">
+            <div className="flex items-center gap-1.5 mb-1">
+              <AlertTriangle size={12} className="shrink-0" />
+              <span className="font-bold uppercase tracking-wider text-[10px]">Sinjalizime Rreziku</span>
+            </div>
+            <ul className="space-y-1">
+              {selectedOption.signal.warnings.map((w, i) => (
+                <li key={i} className="flex gap-1.5">
+                  <span className="shrink-0 text-red-400/60">›</span>
+                  <span>{w}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>
@@ -164,6 +185,105 @@ function IVHStatusBadge({ option }: { option: TerminalOption }) {
               : `IV dhe HV janë afër — vlerësim i arsyeshëm, asnjë avantazh i qartë`}
         </p>
       </div>
+    </div>
+  );
+}
+
+// ─── AI Risk Insights — POP, R/R, breakeven, daily decay (from signalEngine v2) ─
+
+function AIRiskInsightsCard({ option }: { option: TerminalOption }) {
+  const sig = option.signal;
+  // signalEngine v2 returns these; safe-guard for older data
+  const pop = (sig as any).pop ?? option.profitProbability;
+  const breakeven = (sig as any).breakeven ?? 0;
+  const dailyDecayPct = (sig as any).dailyDecayPct ?? 0;
+  const riskReward = (sig as any).riskReward ?? 0;
+  const maxProfit = (sig as any).maxProfit ?? 0;
+  const maxLoss = (sig as any).maxLoss ?? 0;
+
+  // Decay severity buckets
+  const decaySeverity =
+    dailyDecayPct > 3 ? "critical" :
+    dailyDecayPct > 1.5 ? "high" :
+    dailyDecayPct > 0.7 ? "moderate" : "low";
+
+  const decayColor =
+    decaySeverity === "critical" ? "text-red-400 bg-red-500/15" :
+    decaySeverity === "high" ? "text-terminal-amber bg-terminal-amber/15" :
+    decaySeverity === "moderate" ? "text-terminal-cyan bg-terminal-cyan/10" :
+    "text-terminal-green bg-terminal-green/10";
+
+  return (
+    <div className="mt-2 rounded border border-terminal-edge bg-black/15 p-2">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-1.5">
+          <Gauge size={12} className="text-terminal-cyan" />
+          <span className="text-[10px] uppercase tracking-wider text-terminal-muted font-semibold">AI Risk Insights</span>
+        </div>
+        <span className="text-[9px] text-terminal-muted bg-black/30 px-1.5 py-0.5 rounded">
+          {sig.signal}
+        </span>
+      </div>
+
+      {/* Top row: POP + R/R + Decay */}
+      <div className="grid grid-cols-3 gap-1.5">
+        {/* POP */}
+        <div className="rounded bg-black/20 p-1.5 text-center">
+          <div className="text-[9px] text-terminal-muted uppercase">POP</div>
+          <div className={`text-sm font-bold ${pop >= 50 ? "text-terminal-green" : "text-terminal-amber"}`}>
+            {pop.toFixed(1)}%
+          </div>
+          <div className="text-[8px] text-terminal-text/40">Probability of Profit</div>
+        </div>
+
+        {/* R/R */}
+        <div className="rounded bg-black/20 p-1.5 text-center">
+          <div className="text-[9px] text-terminal-muted uppercase">R/R</div>
+          <div className={`text-sm font-bold ${
+            riskReward >= 2 ? "text-terminal-green" : riskReward >= 1 ? "text-terminal-amber" : "text-red-400"
+          }`}>
+            {riskReward.toFixed(1)}:1
+          </div>
+          <div className="text-[8px] text-terminal-text/40">Fitim / Humbje</div>
+        </div>
+
+        {/* Daily decay */}
+        <div className="rounded bg-black/20 p-1.5 text-center">
+          <div className="text-[9px] text-terminal-muted uppercase">Decay</div>
+          <div className={`text-sm font-bold ${decayColor.split(" ")[0]}`}>
+            {dailyDecayPct.toFixed(2)}%
+          </div>
+          <div className="text-[8px] text-terminal-text/40">Per ditë</div>
+        </div>
+      </div>
+
+      {/* Decay severity badge */}
+      <div className="mt-1.5 flex items-center justify-between">
+        <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${decayColor}`}>
+          {decaySeverity === "critical" ? "KRITIK" :
+           decaySeverity === "high" ? "I LARTË" :
+           decaySeverity === "moderate" ? "MESATAR" : "I ULËT"}
+        </span>
+        {breakeven > 0 && (
+          <span className="text-[10px] text-terminal-muted">
+            Breakeven: <span className="text-terminal-cyan font-semibold">${breakeven.toFixed(2)}</span>
+          </span>
+        )}
+      </div>
+
+      {/* Max P/L bar */}
+      {maxLoss > 0 && maxProfit > 0 && (
+        <div className="mt-1.5">
+          <div className="flex justify-between text-[9px] text-terminal-muted mb-0.5">
+            <span className="text-terminal-green">+${maxProfit.toLocaleString()}</span>
+            <span className="text-red-400">-${maxLoss.toLocaleString()}</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-red-500/20 overflow-hidden flex">
+            <div className="h-full bg-terminal-green/70" style={{ width: `${Math.min(80, riskReward / (riskReward + 1) * 100)}%` }} />
+            <div className="h-full bg-red-500/50" style={{ width: `${Math.max(20, 100 - riskReward / (riskReward + 1) * 100)}%` }} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

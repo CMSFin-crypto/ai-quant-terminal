@@ -3,6 +3,7 @@ import type { HistoricalMetrics } from "@/lib/historicalAnalytics";
 import { calculateHistoricalMetrics, generateMockHistory } from "@/lib/historicalAnalytics";
 import { monteCarlo } from "@/lib/montecarlo";
 import { signalEngine } from "@/lib/signalEngine";
+import type { SignalResult } from "@/lib/signalEngine";
 import type { Stock } from "@/lib/sectors";
 import { getRefPrice } from "@/lib/sectors";
 
@@ -270,7 +271,10 @@ function mockOption(
   const vega = Number(greeks.vega.toFixed(4));
   const rho = Number(greeks.rho.toFixed(4));
   const mc = monteCarlo(spot, Math.max(iv * 0.85, historical.realizedVol30, 0.12), 0.05, dte, 5000, seed);
-  const signal = signalEngine({ delta, gamma, theta, iv, volume, openInterest, type });
+  const signal = signalEngine({
+    delta, gamma, theta, iv, volume, openInterest, type,
+    dte, spot, strike, price
+  });
   const edge = ((fairValue - price) / Math.max(price, 1)) * 100;
   const upsidePotential = directionalPotential(type, spot, mc);
   const profitProbability = directionalProbability(type, mc);
@@ -376,9 +380,12 @@ export function normalizePolygonOption(
   const vega = Number(greeks.vega.toFixed(4));
   const rho = Number(greeks.rho.toFixed(4));
   const mc = monteCarlo(spot, Math.max((ivForPricing) * 0.85, alignedHistorical.realizedVol30, 0.12), riskFreeRate, actualDTE, 5000, hashSymbol(stock.symbol));
-  const rawSignal = signalEngine({ delta, gamma, theta, iv: ivForPricing, volume, openInterest, type: optionType });
+  const rawSignal = signalEngine({
+    delta, gamma, theta, iv: ivForPricing, volume, openInterest, type: optionType,
+    dte: actualDTE, spot, strike, price
+  });
   const score = Math.max(0, Math.min(100, rawSignal.score + alignedHistorical.confidenceBoost));
-  const signal = {
+  const signal: SignalResult = {
     ...rawSignal,
     score,
     confidence: score >= 82 ? "High" : score >= 68 ? "Medium" : score <= 35 ? "Defensive" : "Low"
