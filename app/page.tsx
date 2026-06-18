@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Radar, RefreshCw } from "lucide-react";
+import { Calendar, Radar, RefreshCw } from "lucide-react";
 
 import { STOCKS, type Stock } from "@/lib/sectors";
 import { calculateHistoricalMetrics, generateMockHistory } from "@/lib/historicalAnalytics";
@@ -55,6 +55,10 @@ export default function Page() {
   const [refreshDisabled, setRefreshDisabled] = useState(false);
   const [refreshCountdown, setRefreshCountdown] = useState(0);
   const [customStocks, setCustomStocks] = useState<Stock[]>([]);
+  const [selectedDte, setSelectedDte] = useState<number>(30);
+
+  // Available DTE presets
+  const DTE_OPTIONS = [3, 5, 7, 14, 30, 45, 90];
 
   // All stocks = predefined + custom searched
   const allStocks = useMemo(() => [...STOCKS, ...customStocks], [customStocks]);
@@ -154,7 +158,7 @@ export default function Page() {
   const fetchAll = useCallback(async () => {
     setStatus("Syncing");
     const stocksToFetch = allStocks;
-    const fallback = buildMockTerminalData(stocksToFetch);
+    const fallback = buildMockTerminalData(stocksToFetch, selectedDte);
     const BATCH_SIZE = 5;
     const DELAY_BETWEEN_BATCHES_MS = 200;
 
@@ -165,7 +169,7 @@ export default function Page() {
     async function fetchOneStock(stock: Stock) {
       try {
         const [optionsRes, historyRes, quoteRes] = await Promise.all([
-          fetch(`/api/options?symbol=${stock.symbol}`),
+          fetch(`/api/options?symbol=${stock.symbol}&dte=${selectedDte}`),
           fetch(`/api/history?symbol=${stock.symbol}&days=365`),
           fetch(`/api/quote?symbol=${stock.symbol}`)
         ]);
@@ -180,15 +184,15 @@ export default function Page() {
         const historical = calculateHistoricalMetrics(bars);
         const quotePrice = Number(quoteJson?.price || optionsJson?.underlyingPrice || 0) || undefined;
         const optionsSource = optionsJson?.source || undefined;
-        const contract = pickOptionContract(optionsJson?.results, historical, quotePrice);
+        const contract = pickOptionContract(optionsJson?.results, historical, quotePrice, selectedDte);
         const finalHistorySource = hasRealHistory ? historySource : "simulated";
 
         return contract
-          ? normalizePolygonOption(stock, contract, historical, quotePrice, finalHistorySource, optionsSource)
-          : buildSyntheticOption(stock, historical, quotePrice, finalHistorySource);
+          ? normalizePolygonOption(stock, contract, historical, quotePrice, finalHistorySource, optionsSource, selectedDte)
+          : buildSyntheticOption(stock, historical, quotePrice, finalHistorySource, selectedDte);
       } catch {
         // If individual stock fetch fails, use synthetic data
-        return buildSyntheticOption(stock);
+        return buildSyntheticOption(stock, undefined, undefined, "simulated", selectedDte);
       }
     }
 
@@ -217,11 +221,14 @@ export default function Page() {
       setStatus("SIM MODE");
       setLastRefresh(new Date().toLocaleTimeString());
     }
-  }, [allStocks]);
+  }, [allStocks, selectedDte]);
 
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  // --- Auto-refetch when DTE changes ---
+  // (fetchAll already depends on selectedDte, so this triggers via the above effect)
 
   useEffect(() => {
     // Only auto-switch AFTER initial load is complete.
@@ -291,7 +298,7 @@ export default function Page() {
       // Immediately fetch data for this stock and add it to the terminal
       try {
         const [optionsRes, historyRes, quoteRes] = await Promise.all([
-          fetch(`/api/options?symbol=${upperSymbol}`),
+          fetch(`/api/options?symbol=${upperSymbol}&dte=${selectedDte}`),
           fetch(`/api/history?symbol=${upperSymbol}&days=365`),
           fetch(`/api/quote?symbol=${upperSymbol}`)
         ]);
@@ -306,21 +313,21 @@ export default function Page() {
         const historical = calculateHistoricalMetrics(bars);
         const quotePrice = Number(quoteJson?.price || optionsJson?.underlyingPrice || 0) || undefined;
         const optionsSource = optionsJson?.source || undefined;
-        const contract = pickOptionContract(optionsJson?.results, historical, quotePrice);
+        const contract = pickOptionContract(optionsJson?.results, historical, quotePrice, selectedDte);
         const finalHistorySource = hasRealHistory ? historySource : "simulated";
 
         const terminalOption = contract
-          ? normalizePolygonOption(newStock, contract, historical, quotePrice, finalHistorySource, optionsSource)
-          : buildSyntheticOption(newStock, historical, quotePrice, finalHistorySource);
+          ? normalizePolygonOption(newStock, contract, historical, quotePrice, finalHistorySource, optionsSource, selectedDte)
+          : buildSyntheticOption(newStock, historical, quotePrice, finalHistorySource, selectedDte);
 
         setData((prev) => [...prev, terminalOption]);
       } catch {
         // Even if fetch fails, add a synthetic version
-        const synthetic = buildSyntheticOption(newStock);
+        const synthetic = buildSyntheticOption(newStock, undefined, undefined, "simulated", selectedDte);
         setData((prev) => [...prev, synthetic]);
       }
     },
-    [existingSymbols]
+    [existingSymbols, selectedDte]
   );
 
   const isLoading = status === "Booting" || status === "Syncing";
@@ -365,8 +372,8 @@ export default function Page() {
 
             <section className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_360px]">
               <section className="min-w-0">
-                {/* Horizontal tab bar + Refresh */}
-                <div className="mb-3 sm:mb-4 flex items-center justify-between gap-2">
+                {/* Horizontal tab bar + DTE selector + Refresh */}
+                <div className="mb-3 sm:mb-4 flex flex-wrap items-center justify-between gap-2">
                   <div className="thin-scrollbar flex gap-1 overflow-x-auto">
                     {tabs.map((tab) => (
                       <button
@@ -382,14 +389,39 @@ export default function Page() {
                       </button>
                     ))}
                   </div>
-                  <button
-                    onClick={handleRefresh}
-                    disabled={refreshDisabled}
-                    className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded border border-terminal-green/40 bg-terminal-green/10 px-2.5 sm:px-3 text-xs font-semibold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <RefreshCw size={13} className={refreshDisabled ? "animate-spin" : ""} />
-                    <span className="hidden sm:inline">{refreshDisabled ? `${refreshCountdown}s` : "Refresh"}</span>
-                  </button>
+
+                  <div className="flex items-center gap-2">
+                    {/* DTE selector */}
+                    <div className="flex items-center gap-1 rounded border border-terminal-edge bg-black/20 px-1.5 py-1">
+                      <Calendar size={13} className="text-terminal-muted shrink-0" />
+                      <span className="text-[10px] uppercase tracking-wider text-terminal-muted font-semibold hidden sm:inline">Periudha</span>
+                      <div className="flex gap-0.5">
+                        {DTE_OPTIONS.map((dte) => (
+                          <button
+                            key={dte}
+                            onClick={() => setSelectedDte(dte)}
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-bold transition ${
+                              selectedDte === dte
+                                ? "bg-terminal-cyan/20 text-terminal-cyan border border-terminal-cyan/50"
+                                : "text-terminal-muted hover:text-white border border-transparent"
+                            }`}
+                            title={`${dte} ditë deri në skadim`}
+                          >
+                            {dte}d
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleRefresh}
+                      disabled={refreshDisabled}
+                      className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded border border-terminal-green/40 bg-terminal-green/10 px-2.5 sm:px-3 text-xs font-semibold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <RefreshCw size={13} className={refreshDisabled ? "animate-spin" : ""} />
+                      <span className="hidden sm:inline">{refreshDisabled ? `${refreshCountdown}s` : "Refresh"}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {activeTab === "Scanner" && (

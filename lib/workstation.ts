@@ -244,8 +244,10 @@ function mockOption(
   stock: Stock,
   historicalOverride?: HistoricalMetrics,
   quotePrice?: number,
-  historySource = "simulated"
+  historySource = "simulated",
+  targetDte = 30
 ): TerminalOption {
+  const dte = Math.max(1, Math.round(targetDte));
   const seed = hashSymbol(stock.symbol);
   const rawHistorical = historicalOverride || calculateHistoricalMetrics(generateMockHistory(stock.symbol));
   const spot = resolveSpot(rawHistorical, quotePrice, stock.symbol);
@@ -255,19 +257,19 @@ function mockOption(
   const iv = syntheticIv(stock, historical);
   const volume = 500 + (seed % 9000);
   const openInterest = 700 + ((seed * 13) % 12000);
-  const fairValue = blackScholes(spot, strike, 30 / 365, 0.05, iv, type);
+  const fairValue = blackScholes(spot, strike, dte / 365, 0.05, iv, type);
   const pricingSkew = 0.94 + (seed % 13) / 100;
   const price = Number(Math.max(0.05, fairValue * pricingSkew).toFixed(2));
   const intrinsicValue = calcIntrinsicValue(spot, strike, type);
   const extrinsicValue = calcExtrinsicValue(fairValue, intrinsicValue);
   const moneyness = calcMoneyness(spot, strike, type);
-  const greeks = blackScholesGreeks(spot, strike, 30 / 365, 0.05, iv, type);
+  const greeks = blackScholesGreeks(spot, strike, dte / 365, 0.05, iv, type);
   const delta = Number(greeks.delta.toFixed(2));
   const gamma = Number(greeks.gamma.toFixed(3));
   const theta = Number(greeks.theta.toFixed(3));
   const vega = Number(greeks.vega.toFixed(4));
   const rho = Number(greeks.rho.toFixed(4));
-  const mc = monteCarlo(spot, Math.max(iv * 0.85, historical.realizedVol30, 0.12), 0.05, 30, 5000, seed);
+  const mc = monteCarlo(spot, Math.max(iv * 0.85, historical.realizedVol30, 0.12), 0.05, dte, 5000, seed);
   const signal = signalEngine({ delta, gamma, theta, iv, volume, openInterest, type });
   const edge = ((fairValue - price) / Math.max(price, 1)) * 100;
   const upsidePotential = directionalPotential(type, spot, mc);
@@ -289,8 +291,8 @@ function mockOption(
     sector: stock.sector,
     underlyingPrice: spot,
     strike,
-    dte: 30,
-    expirationDate: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
+    dte,
+    expirationDate: new Date(Date.now() + dte * 86_400_000).toISOString().slice(0, 10),
     iv,
     delta,
     gamma,
@@ -327,9 +329,10 @@ export function normalizePolygonOption(
   historical = calculateHistoricalMetrics(generateMockHistory(stock.symbol)),
   quotePrice?: number,
   historySource = "unknown",
-  optionsSource?: string
+  optionsSource?: string,
+  targetDte = 30
 ): TerminalOption {
-  const fallback = mockOption(stock, historical, quotePrice, historySource);
+  const fallback = mockOption(stock, historical, quotePrice, historySource, targetDte);
   const optionType = first?.details?.contract_type === "put" ? "put" : "call";
   const strike = Number(first?.details?.strike_price || fallback.strike);
   const iv = Number(first?.implied_volatility || fallback.iv);
@@ -344,7 +347,7 @@ export function normalizePolygonOption(
   const expirationStr = first?.details?.expiration_date;
   const expirationMs = expirationStr
     ? new Date(`${expirationStr}T00:00:00Z`).getTime()
-    : Date.now() + 30 * 86_400_000;
+    : Date.now() + Math.max(1, targetDte) * 86_400_000;
   const actualDTE = Math.max(1, Math.round((expirationMs - Date.now()) / 86_400_000));
   const dteFraction = actualDTE / 365;
 
@@ -434,23 +437,25 @@ export function normalizePolygonOption(
   };
 }
 
-export function buildMockTerminalData(stocks: Stock[]) {
-  return stocks.map((stock) => mockOption(stock));
+export function buildMockTerminalData(stocks: Stock[], targetDte = 30) {
+  return stocks.map((stock) => mockOption(stock, undefined, undefined, "simulated", targetDte));
 }
 
 export function buildSyntheticOption(
   stock: Stock,
   historical = calculateHistoricalMetrics(generateMockHistory(stock.symbol)),
   quotePrice?: number,
-  historySource = "simulated"
+  historySource = "simulated",
+  targetDte = 30
 ) {
-  return mockOption(stock, historical, quotePrice, historySource);
+  return mockOption(stock, historical, quotePrice, historySource, targetDte);
 }
 
 export function pickOptionContract(
   contracts: PolygonOptionContract[] | undefined,
   historical: HistoricalMetrics,
-  quotePrice?: number
+  quotePrice?: number,
+  targetDte = 30
 ) {
   if (!Array.isArray(contracts) || !contracts.length) return null;
 
@@ -472,14 +477,14 @@ export function pickOptionContract(
       const type = contract?.details?.contract_type === "put" ? "put" : "call";
       const expiration = contract?.details?.expiration_date
         ? new Date(`${contract.details.expiration_date}T00:00:00Z`).getTime()
-        : now + 30 * 86_400_000;
+        : now + targetDte * 86_400_000;
       const dte = Math.max(1, Math.round((expiration - now) / 86_400_000));
       // Prefer ATM (moneyness ~1.0) — closest to the money has best liquidity & tightest spreads
       // OTM calls have cheap premium but low delta; ITM calls have intrinsic value but cost more
       // ATM is the sweet spot for signal analysis
       const moneyness = strike / spot;
       const moneynessPenalty = Math.abs(moneyness - 1.0) * 100;
-      const dtePenalty = Math.abs(dte - 30) * 0.5;
+      const dtePenalty = Math.abs(dte - targetDte) * 0.5;
       const typeBonus = type === preferredType ? 0 : 8;
       const score = moneynessPenalty + dtePenalty + typeBonus;
 

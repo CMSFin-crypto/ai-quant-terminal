@@ -340,7 +340,7 @@ async function getYahooCrumb(): Promise<{ crumb: string; cookies: string } | nul
  *
  * Returns contracts normalized into PolygonOptionContract[] format.
  */
-export async function fetchYahooOptions(symbol: string): Promise<YahooOptionsResult> {
+export async function fetchYahooOptions(symbol: string, targetDte = 30): Promise<YahooOptionsResult> {
   // Step 0: Get authentication crumb + cookies
   const auth = await getYahooCrumb();
   if (!auth) return emptyOptions("yahoo-options-no-crumb");
@@ -388,11 +388,11 @@ export async function fetchYahooOptions(symbol: string): Promise<YahooOptionsRes
     const allExpirations: number[] = chain.expirationDates || [];
     const underlyingPrice = chain.quote?.regularMarketPrice ?? null;
 
-    // Step 2: Check if default expiry is near 30 DTE, otherwise fetch the right one
+    // Step 2: Check if default expiry is near target DTE, otherwise fetch the right one
     let optionsData: YahooOptionsExpiry[];
 
     const defaultExpiry = chain.options?.[0]?.expirationDate;
-    const targetExpiry = pickClosestExpiry(allExpirations, 30);
+    const targetExpiry = pickClosestExpiry(allExpirations, targetDte);
 
     if (defaultExpiry && targetExpiry && Math.abs(defaultExpiry - targetExpiry) < 3 * 86400) {
       optionsData = chain.options || [];

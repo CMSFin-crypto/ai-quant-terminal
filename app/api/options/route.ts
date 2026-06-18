@@ -15,6 +15,8 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const symbol = searchParams.get("symbol");
+  const dteParam = searchParams.get("dte");
+  const targetDte = dteParam ? Math.max(1, Math.min(365, parseInt(dteParam, 10) || 30)) : 30;
 
   if (!symbol) {
     return NextResponse.json({ error: "Missing symbol" }, { status: 400 });
@@ -43,7 +45,7 @@ export async function GET(req: Request) {
   }
 
   // ─── Source 2: Yahoo Finance Options Chain (free, no API key) ────────────
-  const yahooResult = await fetchYahooOptions(symbol);
+  const yahooResult = await fetchYahooOptions(symbol, targetDte);
   if (yahooResult.results.length > 0) {
     return NextResponse.json({
       results: yahooResult.results,
