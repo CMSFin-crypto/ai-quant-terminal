@@ -39,11 +39,15 @@ import { POPCalculatorTab } from "./components/POPCalculatorTab";
 import { MaxProfitLossTab } from "./components/MaxProfitLossTab";
 import { VolSkewTab } from "./components/VolSkewTab";
 import { BacktestTab } from "./components/BacktestTab";
+import { VolConeTab } from "./components/VolConeTab";
+import { StrategyBuilderTab } from "./components/StrategyBuilderTab";
+import { CompareTab } from "./components/CompareTab";
 import { AlertsTab } from "./components/AlertsTab";
 import { SelectedContractPanel } from "./components/SelectedContractPanel";
 import { TopSignalsPanel } from "./components/TopSignalsPanel";
 import { SectorHeatmapPanel } from "./components/SectorHeatmapPanel";
 import { StockSearch } from "./components/StockSearch";
+import { EarningsBanner } from "./components/EarningsBanner";
 
 export default function Page() {
   const [data, setData] = useState<TerminalOption[]>([]);
@@ -56,6 +60,12 @@ export default function Page() {
   const [refreshCountdown, setRefreshCountdown] = useState(0);
   const [customStocks, setCustomStocks] = useState<Stock[]>([]);
   const [selectedDte, setSelectedDte] = useState<number>(30);
+  const [earningsInfo, setEarningsInfo] = useState<{
+    symbol: string;
+    earningsDate: string | null;
+    daysToEarnings: number | null;
+    source: string;
+  } | null>(null);
 
   // Available DTE presets
   const DTE_OPTIONS = [3, 5, 7, 14, 30, 45, 90];
@@ -230,6 +240,29 @@ export default function Page() {
   // --- Auto-refetch when DTE changes ---
   // (fetchAll already depends on selectedDte, so this triggers via the above effect)
 
+  // --- Fetch earnings for the selected symbol ---
+  useEffect(() => {
+    if (!selected) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/earnings?symbol=${selected}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled) {
+          setEarningsInfo({
+            symbol: selected,
+            earningsDate: json.earningsDate,
+            daysToEarnings: json.daysToEarnings,
+            source: json.source,
+          });
+        }
+      } catch {
+        if (!cancelled) setEarningsInfo(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selected]);
   useEffect(() => {
     // Only auto-switch AFTER initial load is complete.
     // During progressive loading (batches), NVDA may not be in data yet,
@@ -368,6 +401,11 @@ export default function Page() {
                 selected={selected}
                 onSelectSector={handleSectorSelect}
               />
+
+              {/* Earnings warning banner (shows only if earnings within 30 days) */}
+              {earningsInfo && earningsInfo.daysToEarnings !== null && earningsInfo.daysToEarnings <= 30 && (
+                <EarningsBanner earningsInfo={earningsInfo} />
+              )}
             </header>
 
             <section className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_360px]">
@@ -459,6 +497,18 @@ export default function Page() {
 
                 {activeTab === "Backtest" && selectedOption && (
                   <BacktestTab selectedOption={selectedOption} />
+                )}
+
+                {activeTab === "Vol Cone" && selectedOption && (
+                  <VolConeTab selectedOption={selectedOption} />
+                )}
+
+                {activeTab === "Strategy Builder" && selectedOption && (
+                  <StrategyBuilderTab selectedOption={selectedOption} />
+                )}
+
+                {activeTab === "Compare" && (
+                  <CompareTab data={data} selected={selected} onSelect={setSelected} />
                 )}
 
                 {activeTab === "Monte Carlo" && selectedOption && (

@@ -8,6 +8,7 @@ import { generateVolSkew } from "@/lib/volAnalytics";
 import { Panel } from "./Panel";
 import { MiniStat } from "./MiniStat";
 import { SignalBadge } from "./SignalBadge";
+import { IVRankCard } from "./IVRankCard";
 
 interface SelectedContractPanelProps {
   selectedOption: TerminalOption;
@@ -66,6 +67,9 @@ export function SelectedContractPanel({ selectedOption, selectedAnalysis }: Sele
 
         {/* ── IV/HV STATUS BADGE — inline "Opsionet janë të shtrenjta/të lira" ── */}
         <IVHStatusBadge option={selectedOption} />
+
+        {/* ── IV RANK & IV PERCENTILE — 52-week context ── */}
+        <IVRankCard option={selectedOption} />
 
         {/* ── AI RISK INSIGHTS — POP, R/R, breakeven, daily decay ── */}
         <AIRiskInsightsCard option={selectedOption} />

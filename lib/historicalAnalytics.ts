@@ -13,6 +13,18 @@ export type HistoricalMetrics = {
   spot: number;
   realizedVol30: number;
   realizedVol90: number;
+  /** 10-day realized volatility */
+  realizedVol10: number;
+  /** 20-day realized volatility */
+  realizedVol20: number;
+  /** 60-day realized volatility */
+  realizedVol60: number;
+  /** 52-week high of rolling 20-day HV — used as IV Rank denominator */
+  hvHigh52w: number;
+  /** 52-week low of rolling 20-day HV — used as IV Rank denominator */
+  hvLow52w: number;
+  /** Per-day rolling 20-day HV over the past year, used for IV Percentile */
+  hvSeries: number[];
   momentum30: number;
   momentum90: number;
   maxDrawdown: number;
@@ -68,10 +80,29 @@ export function calculateHistoricalMetrics(bars: PriceBar[]): HistoricalMetrics 
   const closes = cleanBars.map((bar) => bar.c);
   const returns = returnsFromBars(cleanBars);
   const lastClose = closes[closes.length - 1] || 100;
-  const r30 = returns.slice(-30);
-  const r90 = returns.slice(-90);
-  const realizedVol30 = stdev(r30) * Math.sqrt(252);
-  const realizedVol90 = stdev(r90) * Math.sqrt(252);
+
+  // Rolling-window HV: 10, 20, 30, 60, 90 day windows
+  const hv = (window: number) => {
+    const slice = returns.slice(-window);
+    return stdev(slice) * Math.sqrt(252);
+  };
+  const realizedVol10 = hv(10);
+  const realizedVol20 = hv(20);
+  const realizedVol30 = hv(30);
+  const realizedVol60 = hv(60);
+  const realizedVol90 = hv(90);
+
+  // Build a per-day rolling 20-day HV series over the past year (for IV Percentile & IV Rank)
+  // We compute HV at each day using the prior 20 returns — this gives ~230 data points
+  const ROLLING_WINDOW = 20;
+  const hvSeries: number[] = [];
+  for (let i = ROLLING_WINDOW; i <= returns.length; i++) {
+    const slice = returns.slice(i - ROLLING_WINDOW, i);
+    hvSeries.push(stdev(slice) * Math.sqrt(252));
+  }
+  const hvHigh52w = hvSeries.length ? Math.max(...hvSeries) : realizedVol30;
+  const hvLow52w = hvSeries.length ? Math.min(...hvSeries) : realizedVol30;
+
   const momentum30 = momentum(closes, 30);
   const momentum90 = momentum(closes, 90);
   const maxDd = maxDrawdown(closes);
@@ -93,8 +124,14 @@ export function calculateHistoricalMetrics(bars: PriceBar[]): HistoricalMetrics 
 
   return {
     spot: lastClose,
+    realizedVol10,
+    realizedVol20,
     realizedVol30,
+    realizedVol60,
     realizedVol90,
+    hvHigh52w,
+    hvLow52w,
+    hvSeries,
     momentum30,
     momentum90,
     maxDrawdown: maxDd,
@@ -102,6 +139,32 @@ export function calculateHistoricalMetrics(bars: PriceBar[]): HistoricalMetrics 
     trend,
     confidenceBoost
   };
+}
+
+/**
+ * IV Rank (IVR) — where current IV sits within its 52-week range
+ *   IVR = (currentIV - 52w low) / (52w high - 52w low) × 100
+ * Range: 0 (IV at year low) to 100 (IV at year high)
+ */
+export function calculateIVRank(currentIV: number, hvHigh52w: number, hvLow52w: number): number {
+  const range = hvHigh52w - hvLow52w;
+  if (range < 0.001) return 50; // flat vol regime → neutral
+  const rank = ((currentIV - hvLow52w) / range) * 100;
+  return Math.max(0, Math.min(100, Math.round(rank * 10) / 10));
+}
+
+/**
+ * IV Percentile (IVP) — % of days in past year where HV was BELOW current IV
+ *   IVP = (count of days where HV < currentIV) / totalDays × 100
+ * Range: 0 (IV cheaper than 100% of year) to 100 (IV more expensive than 100% of year)
+ *
+ * IVP > 50 → options expensive → consider selling premium
+ * IVP < 30 → options cheap → consider buying premium
+ */
+export function calculateIVPercentile(currentIV: number, hvSeries: number[]): number {
+  if (!hvSeries.length) return 50;
+  const below = hvSeries.filter(hv => hv < currentIV).length;
+  return Math.round((below / hvSeries.length) * 1000) / 10;
 }
 
 export function generateMockHistory(symbol: string, days = 252): PriceBar[] {

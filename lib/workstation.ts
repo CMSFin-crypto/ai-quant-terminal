@@ -1,6 +1,6 @@
 import { blackScholes, blackScholesGreeks, impliedVolatility } from "@/lib/blackscholes";
 import type { HistoricalMetrics } from "@/lib/historicalAnalytics";
-import { calculateHistoricalMetrics, generateMockHistory } from "@/lib/historicalAnalytics";
+import { calculateHistoricalMetrics, generateMockHistory, calculateIVRank, calculateIVPercentile } from "@/lib/historicalAnalytics";
 import { monteCarlo } from "@/lib/montecarlo";
 import { signalEngine } from "@/lib/signalEngine";
 import type { SignalResult } from "@/lib/signalEngine";
@@ -73,6 +73,14 @@ export type TerminalOption = {
   dataSource: "real-options" | "synthetic-options";
   dataQuality: number;
   warnings: string[];
+  /** IV Rank (0-100) — where current IV sits within 52-week HV range */
+  ivRank: number;
+  /** IV Percentile (0-100) — % of days in past year where HV was below current IV */
+  ivPercentile: number;
+  /** Next earnings date (ISO string) — null if unknown */
+  earningsDate?: string | null;
+  /** Days to next earnings */
+  earningsDte?: number | null;
 };
 
 const sectorBias: Record<Stock["sector"], number> = {
@@ -289,6 +297,10 @@ function mockOption(
   const flowTypes: TerminalOption["flow"][] = ["Sweep", "Block", "Split", "Lit"];
   const diagnostics = dataDiagnostics(historySource, "synthetic-options");
 
+  // IV Rank & IV Percentile — based on 52-week HV range
+  const ivRank = calculateIVRank(iv, historical.hvHigh52w, historical.hvLow52w);
+  const ivPercentile = calculateIVPercentile(iv, historical.hvSeries);
+
   return {
     symbol: stock.symbol,
     name: stock.name,
@@ -323,7 +335,11 @@ function mockOption(
     historySource,
     dataSource: "synthetic-options",
     dataQuality: diagnostics.dataQuality,
-    warnings: diagnostics.warnings
+    warnings: diagnostics.warnings,
+    ivRank,
+    ivPercentile,
+    earningsDate: null,
+    earningsDte: null
   };
 }
 
@@ -409,6 +425,10 @@ export function normalizePolygonOption(
   const dataSource: TerminalOption["dataSource"] = first ? "real-options" : "synthetic-options";
   const diagnostics = dataDiagnostics(historySource, dataSource, optionsSource);
 
+  // IV Rank & IV Percentile — based on 52-week HV range
+  const ivRank = calculateIVRank(ivForPricing, alignedHistorical.hvHigh52w, alignedHistorical.hvLow52w);
+  const ivPercentile = calculateIVPercentile(ivForPricing, alignedHistorical.hvSeries);
+
   return {
     ...fallback,
     underlyingPrice: spot,
@@ -440,7 +460,11 @@ export function normalizePolygonOption(
     historySource,
     dataSource,
     dataQuality: diagnostics.dataQuality,
-    warnings: diagnostics.warnings
+    warnings: diagnostics.warnings,
+    ivRank,
+    ivPercentile,
+    earningsDate: null,
+    earningsDte: null
   };
 }
 
